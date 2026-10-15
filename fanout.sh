@@ -50,15 +50,18 @@ git -C "$repo" ls-files -z --cached --others --exclude-standard -- . "${excludes
     tar -x -f - -C "$work/repo"
 
 # Claude: --bare skips the user's and the repo's hooks, plugins, MCP servers and
-# CLAUDE.md, and needs ANTHROPIC_API_KEY. Without the key, --safe-mode skips the
-# same things and runs on the logged-in plan. Either way the repo's own
+# CLAUDE.md, and needs an API key. Without one, --safe-mode skips the same
+# things and runs on the logged-in plan. Either way the repo's own
 # .claude/settings.json is not loaded, and the only tools are Read, Grep, Glob.
-if [[ -n ${ANTHROPIC_API_KEY:-} ]]; then
+# SENTINEL_ANTHROPIC_API_KEY lets the key live in a shell profile without
+# every interactive Claude Code session picking it up as ANTHROPIC_API_KEY.
+claude_key="${SENTINEL_ANTHROPIC_API_KEY:-${ANTHROPIC_API_KEY:-}}"
+if [[ -n $claude_key ]]; then
     claude_mode=(--bare)
-    claude_auth="ANTHROPIC_API_KEY"
+    claude_auth="API key (SENTINEL_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY)"
 else
     claude_mode=(--safe-mode)
-    claude_auth="logged-in Claude plan (ANTHROPIC_API_KEY is not set)"
+    claude_auth="logged-in Claude plan (no API key set)"
 fi
 
 # Codex: codex exec reads CODEX_API_KEY, not OPENAI_API_KEY, so pass the key
@@ -96,7 +99,9 @@ status() { # lens run rc seconds
 
 run_claude() { # lens prompt run
     local dest="$out/$1/$3" start=$SECONDS rc=0
-    (cd "$work/repo" && env -u OPENAI_API_KEY -u CODEX_API_KEY \
+    local envs=(-u OPENAI_API_KEY -u CODEX_API_KEY -u SENTINEL_ANTHROPIC_API_KEY -u ANTHROPIC_API_KEY)
+    [[ -z $claude_key ]] || envs+=("ANTHROPIC_API_KEY=$claude_key")
+    (cd "$work/repo" && env "${envs[@]}" \
         timeout --kill-after=30 "$RUN_TIMEOUT" \
         claude -p "${claude_mode[@]}" --model "$MODEL" --effort "$EFFORT" \
             --setting-sources user --tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob" \
@@ -119,7 +124,7 @@ run_codex() { # lens prompt
                 -c "model_reasoning_effort=$CODEX_EFFORT" -c project_doc_max_bytes=0
                 -o "$dest.md.part")
     [[ -z $CODEX_MODEL ]] || args+=(-m "$CODEX_MODEL")
-    local envs=(-u ANTHROPIC_API_KEY -u OPENAI_API_KEY "CODEX_HOME=$codex_home")
+    local envs=(-u ANTHROPIC_API_KEY -u SENTINEL_ANTHROPIC_API_KEY -u OPENAI_API_KEY "CODEX_HOME=$codex_home")
     [[ -z $codex_key ]] || envs+=("CODEX_API_KEY=$codex_key")
     env "${envs[@]}" timeout --kill-after=30 "$RUN_TIMEOUT" codex "${args[@]}" - \
         < "$2" > "$dest.log" 2>&1 || rc=$?

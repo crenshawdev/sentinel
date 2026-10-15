@@ -117,7 +117,7 @@ Settings, set as environment variables:
 | `SENTINEL_CODEX_SANDBOX` | `read-only` | Codex `--sandbox` |
 | `SENTINEL_RUN_TIMEOUT` | `3600` | Seconds before a single run is killed |
 
-Billing: with `ANTHROPIC_API_KEY` set, Claude runs in `--bare` mode and bills the API key. Without it, Claude runs in `--safe-mode` on your logged-in plan. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
+Billing: with an API key set, Claude runs in `--bare` mode and bills the key. Without one, Claude runs in `--safe-mode` on your logged-in plan. fanout.sh reads `SENTINEL_ANTHROPIC_API_KEY` first and `ANTHROPIC_API_KEY` second. On a workstation, put the key in your shell profile as `SENTINEL_ANTHROPIC_API_KEY`: exported as `ANTHROPIC_API_KEY`, every interactive Claude Code session would see it alongside your claude.ai login. CI sets `ANTHROPIC_API_KEY` on the fanout step only, which is fine. The key must be scoped to a workspace in the Anthropic Console; an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
 
 What the reviewers can and cannot do:
 
