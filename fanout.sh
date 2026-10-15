@@ -55,18 +55,19 @@ git -C "$repo" ls-files -z --cached --others --exclude-standard -- . "${excludes
     tar -c -f - -C "$repo" --null --ignore-failed-read -T - |
     tar -x -f - -C "$work/repo"
 
-# Claude: --bare skips the user's and the repo's hooks, plugins, MCP servers and
-# CLAUDE.md, and needs an API key. Without one, --safe-mode skips the same
-# things and runs on the logged-in plan. Either way the repo's own
-# .claude/settings.json is not loaded, and the only tools are Read, Grep, Glob.
+# Claude: --safe-mode skips the user's and the repo's hooks, plugins, MCP
+# servers and CLAUDE.md, and --setting-sources user keeps the repo's own
+# .claude/settings.json out. The tools are Read, Grep and Glob (--bare would
+# drop Grep and Glob), nothing is pre-approved, so any read or search outside
+# the snapshot is refused. With an API key set, the key is billed; without
+# one, the logged-in plan is.
 # SENTINEL_ANTHROPIC_API_KEY lets the key live in a shell profile without
 # every interactive Claude Code session picking it up as ANTHROPIC_API_KEY.
 claude_key="${SENTINEL_ANTHROPIC_API_KEY:-${ANTHROPIC_API_KEY:-}}"
+claude_mode=(--safe-mode)
 if [[ -n $claude_key ]]; then
-    claude_mode=(--bare)
     claude_auth="API key (SENTINEL_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY)"
 else
-    claude_mode=(--safe-mode)
     claude_auth="logged-in Claude plan (no API key set)"
 fi
 
