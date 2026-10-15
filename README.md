@@ -60,8 +60,7 @@ For CI, copy `ci/fast.yml` and `ci/full.yml` into `.github/workflows/` or `.forg
    $SENTINEL_DIR/mechanical/check.sh .
    ```
 2. Context build. Fill in `THREAT-MODEL.md`. fanout.sh refuses to run without it.
-3. Claude security full scan.
-   <!-- TODO(john): how this step is run. -->
+3. Claude security full scan. Not scripted in this kit yet.
 4. Fan out the lenses.
    ```sh
    $SENTINEL_DIR/fanout.sh . 3
