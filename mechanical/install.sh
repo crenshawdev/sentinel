@@ -2,15 +2,18 @@
 # Install the tools check.sh runs, on Arch Linux.
 #
 # pacman needs root and runs through sudo. The cargo tools install into
-# ~/.cargo/bin with cargo install, and semgrep, pip-audit and bandit install
-# into ~/.local/bin with pipx; neither needs root.
+# $CARGO_HOME/bin (~/.cargo/bin by default) with cargo install, and semgrep,
+# pip-audit and bandit install into ~/.local/bin with pipx; neither needs root.
 set -euo pipefail
 
 command -v pacman >/dev/null || { echo "install.sh: this script is for Arch Linux (pacman not found)" >&2; exit 2; }
 
-# rustup conflicts with the rust package; if rust is installed, pacman asks
-# whether to replace it.
-sudo pacman -S --needed base-devel git openssl pkgconf python python-pipx nodejs npm rustup
+pkgs=(base-devel git openssl pkgconf python python-pipx nodejs npm)
+# Leave an existing rustup alone, including one installed with rustup-init.
+# pacman's rustup conflicts with the rust package; if rust is installed,
+# pacman asks whether to replace it.
+command -v rustup >/dev/null || pkgs+=(rustup)
+sudo pacman -S --needed "${pkgs[@]}"
 
 # cargo-geiger needs a recent stable toolchain; cargo fuzz needs nightly.
 rustup update stable
@@ -30,4 +33,4 @@ done
 pipx ensurepath
 
 echo
-echo "Installed. If ~/.cargo/bin or ~/.local/bin is new to your PATH, open a new shell before running check.sh."
+echo "Installed. If ${CARGO_HOME:-~/.cargo}/bin or ~/.local/bin is new to your PATH, open a new shell before running check.sh."
