@@ -73,7 +73,7 @@ For CI, copy `ci/fast.yml` and `ci/full.yml` into `.github/workflows/` or `.forg
    ```
    Read <SENTINEL_DIR>/adjudicator.md and follow it. The findings are in audit/<timestamp>/merged.md.
    ```
-   The adjudicator writes its demonstrations under `tests/security/` and does not commit them.
+   The adjudicator writes its demonstrations under `tests/security/`, in a Cargo workspace under the member crate's `tests/security/`, and does not commit them.
 7. Variant search. For each CONFIRMED finding, search the rest of the code, and your other repos, for the same mistake.
 
 Then add a row per step to `findings-log.md`.

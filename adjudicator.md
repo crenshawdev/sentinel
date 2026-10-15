@@ -16,11 +16,11 @@ DROPPED: the finding is wrong. Every drop states why: the cited code does not ex
 - Run it. Confirm it fails for the reason the finding gives, not because it does not compile, a fixture is missing, or something unrelated broke. Keep the failing line of output for the notes.
 - Run it at least three times on its own and once together with everything else in `tests/security/`. If it passes even once, it does not demonstrate anything yet: make it reliable, or mark the finding UNPROVEN and say the test was not reliable.
 - Put it in the repository under the language's test layout, named after the finding id in lowercase (F003 becomes `f003`):
-  - Rust: `tests/security/main.rs` declares one module per finding (`mod f003;`), each in `tests/security/f003.rs`. Run with `cargo test --test security f003`. Integration tests see only the public API; to drive a binary use `env!("CARGO_BIN_EXE_<name>")`, which Cargo sets for integration tests.
+  - Rust: `tests/security/main.rs` declares one module per finding (`mod f003;`), each in `tests/security/f003.rs`, inside the package that owns the faulty code. In a single-package repo that is the repo root. In a workspace it is the member crate's directory, for example `crates/<crate>/tests/security/`, because a workspace root with no `[package]` compiles no tests. Run with `cargo test -p <package> --test security f003`. Integration tests see only that package's public API; to drive one of its binaries use `env!("CARGO_BIN_EXE_<name>")`, which Cargo sets for integration tests in the package that defines the binary.
   - Node: `test/security/f003.test.js`, run with `node --test test/security/f003.test.js`.
   - Python: `tests/security/test_f003.py`, run with `python -m pytest tests/security/test_f003.py`.
 - When a test is not practical (a race, a permission problem that needs a second user, a crafted transcript fed to a running hook), write the concrete input instead: a script at `tests/security/repro/f003.sh` with the exact steps, run it, and record what it printed.
-- Do not add dependencies. Do not edit source files outside `tests/security/`; if the only way to reach the code is a unit test inside a private module, mark the finding UNPROVEN, say that, and describe the test you would write.
+- Do not add dependencies. Do not edit source files outside the `tests/security/` directories; if the only way to reach the code is a unit test inside a private module, mark the finding UNPROVEN, say that, and describe the test you would write.
 - Run everything with `HOME` and the tool's data directory pointed at a fresh temporary directory. Never let a demonstration touch the real home directory, real transcripts, real keys, or the network.
 - Do not fix anything and do not commit anything.
 
