@@ -11,8 +11,10 @@ set -euo pipefail
 
 MODEL="${SENTINEL_MODEL:-opus}"
 EFFORT="${SENTINEL_EFFORT:-high}"
-CODEX_MODEL="${SENTINEL_CODEX_MODEL:-}"       # empty: Codex's own default model
-CODEX_EFFORT="${SENTINEL_CODEX_EFFORT:-high}"
+# Set here because with an API key Codex runs with an empty CODEX_HOME and never
+# reads ~/.codex/config.toml. SENTINEL_CODEX_MODEL="" uses Codex's own default.
+CODEX_MODEL="${SENTINEL_CODEX_MODEL-gpt-6-astra}"
+CODEX_EFFORT="${SENTINEL_CODEX_EFFORT:-xhigh}"
 CODEX_SANDBOX="${SENTINEL_CODEX_SANDBOX:-read-only}"
 RUN_TIMEOUT="${SENTINEL_RUN_TIMEOUT:-3600}"   # seconds per run
 

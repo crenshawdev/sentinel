@@ -111,8 +111,8 @@ Settings, set as environment variables:
 |----------|---------|--------------|
 | `SENTINEL_MODEL` | `opus` | Claude model (`--model`) |
 | `SENTINEL_EFFORT` | `high` | Claude effort (`--effort`) |
-| `SENTINEL_CODEX_MODEL` | Codex's default | Codex model (`-m`) |
-| `SENTINEL_CODEX_EFFORT` | `high` | Codex `model_reasoning_effort` |
+| `SENTINEL_CODEX_MODEL` | `gpt-6-astra` | Codex model (`-m`); set it to an empty string for Codex's own default |
+| `SENTINEL_CODEX_EFFORT` | `xhigh` | Codex `model_reasoning_effort` |
 | `SENTINEL_CODEX_SANDBOX` | `read-only` | Codex `--sandbox` |
 | `SENTINEL_RUN_TIMEOUT` | `3600` | Seconds before a single run is killed |
 
