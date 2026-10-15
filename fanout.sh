@@ -111,7 +111,7 @@ run_claude() { # lens prompt run
     (cd "$work/repo" && env "${envs[@]}" \
         timeout --kill-after=30 "$RUN_TIMEOUT" \
         claude -p "${claude_mode[@]}" --model "$MODEL" --effort "$EFFORT" \
-            --setting-sources user --tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob" \
+            --setting-sources user --tools "Read,Grep,Glob" \
             --permission-mode dontAsk --no-session-persistence --output-format text \
         < "$2" > "$dest.md.part" 2> "$dest.log") || rc=$?
     if [[ $rc -eq 0 && -s $dest.md.part ]]; then

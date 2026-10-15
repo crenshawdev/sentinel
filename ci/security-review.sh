@@ -32,13 +32,23 @@ trap 'rm -f "$prompt"' EXIT
 { cat "$kit/ci/security-review.md"; echo; cat "$kit/finding-format.md"; } > "$prompt"
 
 # --bare and --setting-sources user keep the pull request's own .claude
-# settings, hooks and MCP servers from loading, and the only tools are
-# Read, Grep and Glob.
+# settings, hooks and MCP servers from loading. The tools are read-only and
+# nothing is pre-approved, so under dontAsk a read outside the working
+# directory (/proc/self/environ, the home directory) is refused; .git is
+# refused by name.
 rc=0
 claude -p --bare --model "$model" --effort "$effort" \
-    --setting-sources user --tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob" \
+    --setting-sources user --tools "Read,Grep,Glob" --disallowedTools "Read(./.git/**)" \
     --permission-mode dontAsk --no-session-persistence --output-format text \
     < "$prompt" > "$out" || rc=$?
+
+# The review is posted publicly. If text in the diff got the reviewer to quote
+# the API key, fail without showing or posting the output.
+if grep -qF -- "$ANTHROPIC_API_KEY" "$out"; then
+    rm -f "$out"
+    echo "::error::the security review output contained the API key; it was deleted and will not be posted. Rotate the key."
+    exit 1
+fi
 
 if [[ $rc -ne 0 ]]; then
     echo "::error::the security review did not run: claude exited $rc"

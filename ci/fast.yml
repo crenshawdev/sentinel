@@ -26,6 +26,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          # Builds run the pull request's code; keep the token out of .git/config.
+          persist-credentials: false
       - name: Install gating tools
         run: '"$SENTINEL_DIR/ci/install-tools.sh"'
       - name: Mechanical checks
@@ -45,6 +47,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           submodules: recursive
+          # The reviewer can read files; keep the token out of .git/config.
+          persist-credentials: false
       # Claude Code needs Node 22 or newer; older Node gets an old CLI that
       # cannot run current models.
       - uses: actions/setup-node@v4

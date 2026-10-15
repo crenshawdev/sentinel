@@ -110,7 +110,7 @@ Billing: with an API key set, Claude runs in `--bare` mode and bills the key. Wi
 What the reviewers can and cannot do:
 
 - They read a snapshot of the repo's tracked and untracked-but-not-ignored files in a private temp directory, so no run sees another run's output and nothing they do touches your working tree. `audit/`, `CLAUDE-SECURITY-*/` and the sentinel directory are left out of the snapshot.
-- Claude gets only the Read, Grep and Glob tools. The repo's `.claude/settings.json`, hooks and MCP servers are not loaded, and neither are your own hooks, plugins, MCP servers or CLAUDE.md. Sessions are not saved.
+- Claude gets only read-only tools, with nothing pre-approved, so any read outside the snapshot (your home directory, `/proc`) is refused. In testing on Linux in `--bare` mode, Read is the only one available; Grep and Glob are not. The repo's `.claude/settings.json`, hooks and MCP servers are not loaded, and neither are your own hooks, plugins, MCP servers or CLAUDE.md. Sessions are not saved.
 - Each CLI gets only its own API key.
 - Codex's read-only sandbox blocks writes. Without an API key, Codex loads your global `AGENTS.md`.
 
@@ -140,7 +140,7 @@ printenv SENTINEL_ANTHROPIC_API_KEY | gh secret set ANTHROPIC_API_KEY -R <owner>
 
 If the project needs system libraries to build, add them to the install step.
 
-`fast.yml` runs on every pull request. The `mechanical` job runs check.sh with the gating tools on GitHub and Forgejo. The `security-review` job then runs `ci/security-review.sh`, on GitHub only, because it posts its result as a pull request comment through the GitHub API. It installs a pinned Claude Code (2.1.300) on Node 22, has Claude Opus 5.5 review the pull request's diff against `THREAT-MODEL.md` with only the Read, Grep and Glob tools and none of the pull request's own `.claude` settings loaded, and writes the review in the finding format. The job fails when the review did not run or its output holds neither findings nor a "No findings" marker, so a passing check means a review happened. Findings do not fail the job; they are posted for the author to read.
+`fast.yml` runs on every pull request. The `mechanical` job runs check.sh with the gating tools on GitHub and Forgejo. The `security-review` job then runs `ci/security-review.sh`, on GitHub only, because it posts its result as a pull request comment through the GitHub API. It installs a pinned Claude Code (2.1.300) on Node 22, has Claude Opus 5.5 review the pull request's diff against `THREAT-MODEL.md` with read-only tools and none of the pull request's own `.claude` settings loaded, and writes the review in the finding format. The checkout keeps no GitHub token in `.git/config`, the reviewer is refused any read outside the checkout and inside `.git`, and output that contains the API key is deleted and fails the job instead of being posted. The job fails when the review did not run or its output holds neither findings nor a "No findings" marker, so a passing check means a review happened. Findings do not fail the job; they are posted for the author to read.
 
 The diff is untrusted input, and text in it can try to steer the review. The prompt tells Claude to treat it as data, which narrows that but cannot rule it out, so the review is for trusted pull requests; require approval for workflows from outside contributors. `SENTINEL_REVIEW_MODEL` and `SENTINEL_REVIEW_EFFORT` override the model and effort.
 
