@@ -65,16 +65,23 @@ def lens_for(record):
     return "other"
 
 
+def field_text(value):
+    """Field text with every line after the first indented, so text from the
+    scan can never start a heading or a field when merge.sh reads it back."""
+    lines = str(value or "").strip().splitlines()
+    return "\n".join(lines[:1] + ["  " + l for l in lines[1:]])
+
+
 def block(record):
-    file = str(record.get("file") or "").strip()
+    file = " ".join(str(record.get("file") or "").split())
     line = int(record.get("line") or 0)
-    trigger = str(record.get("exploit_scenario") or record.get("description") or "").strip()
+    trigger = field_text(record.get("exploit_scenario") or record.get("description"))
     pre = [str(p).strip() for p in record.get("preconditions") or [] if str(p).strip()]
     if pre:
         trigger += "\n  Preconditions: " + "; ".join(pre)
-    consequence = str(record.get("impact") or record.get("description") or "").strip()
+    consequence = field_text(record.get("impact") or record.get("description"))
     return "\n".join([
-        f"## Finding: {str(record.get('title') or '').strip()}",
+        f"## Finding: {' '.join(str(record.get('title') or '').split())}",
         f"- location: {file}:{line}" if line > 0 else f"- location: {file}",
         f"- severity: {str(record.get('severity') or '').strip().lower()}",
         f"- trigger: {trigger or 'UNPROVEN no exploit scenario given'}",
@@ -103,4 +110,13 @@ for lens in lenses + (["other"] if "other" in found else []):
         else:
             fh.write("## No findings\n- examined: the whole repository\n")
     print(f"{lens}: {len(found.get(lens, []))} findings")
+
+# A reimport with nothing unmatched must not leave an earlier import's
+# "other" findings behind for merge.sh to pick up.
+stale = os.path.join(run_dir, "other", "claude-security.md")
+if "other" not in found and os.path.exists(stale):
+    os.remove(stale)
+    if not os.listdir(os.path.dirname(stale)):
+        os.rmdir(os.path.dirname(stale))
+    print("other: 0 findings (removed the earlier import's file)")
 PY
