@@ -91,10 +91,16 @@ else
 fi
 
 semgrep_args=(scan --metrics=off --error --exclude=audit)
-while IFS= read -r cfg; do
-    [[ $cfg == p/* || $cfg == r/* || $cfg == /* ]] || cfg="$mech/$cfg"
-    semgrep_args+=(--config "$cfg")
-done < <(sed -n 's/^[[:space:]]*-[[:space:]]*\([^#[:space:]]*\).*/\1/p' "$mech/semgrep.yml")
+while read -r section value; do
+    case $section in
+        configs)
+            [[ $value == p/* || $value == r/* || $value == /* ]] || value="$mech/$value"
+            semgrep_args+=(--config "$value") ;;
+        exclude-rules)
+            semgrep_args+=(--exclude-rule "$value") ;;
+    esac
+done < <(awk '/^[a-z-]+:/ { section = $1; sub(/:$/, "", section); next }
+              /^[[:space:]]*-[[:space:]]*[^#[:space:]]/ { print section, $2 }' "$mech/semgrep.yml")
 step gate "semgrep" semgrep semgrep "${semgrep_args[@]}" .
 
 if [[ -f package.json ]]; then

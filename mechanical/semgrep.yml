@@ -1,9 +1,17 @@
 # Registry rulesets check.sh runs. A semgrep rule file cannot include registry
 # rulesets, so this is a list rather than a rule file: check.sh passes each
-# entry to semgrep as its own --config flag. Entries can also be paths to
-# local rule files, relative to this directory.
+# entry under configs to semgrep as its own --config flag, and each entry
+# under exclude-rules as its own --exclude-rule flag. Config entries can also
+# be paths to local rule files, relative to this directory.
 configs:
   - p/rust
   - p/secrets
   - p/javascript
   - p/python
+
+# Rules that fire on every command-line tool, which is what this kit audits:
+# reading the program's arguments or its own path is how a CLI works.
+exclude-rules:
+  - rust.lang.security.args.args
+  - rust.lang.security.args-os.args-os
+  - rust.lang.security.current-exe.current-exe

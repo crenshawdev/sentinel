@@ -95,7 +95,7 @@ Gates fail the run when they fail or when the tool is not installed. Everything 
 | `pip-audit` | `pyproject.toml` with a `[project]` table, or `requirements.txt` | report |
 | `bandit -r .` | `pyproject.toml` or `requirements.txt` exists | report |
 
-semgrep runs with `--metrics=off`.
+semgrep runs with `--metrics=off`. `semgrep.yml` also lists rules to skip: the three p/rust rules that flag reading the program's arguments or its own path (`args`, `args-os`, `current-exe`), which fire on every command-line tool.
 
 ## fanout.sh
 
