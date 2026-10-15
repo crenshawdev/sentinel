@@ -1,0 +1,9 @@
+# Registry rulesets check.sh runs. A semgrep rule file cannot include registry
+# rulesets, so this is a list rather than a rule file: check.sh passes each
+# entry to semgrep as its own --config flag. Entries can also be paths to
+# local rule files, relative to this directory.
+configs:
+  - p/rust
+  - p/secrets
+  - p/javascript
+  - p/python

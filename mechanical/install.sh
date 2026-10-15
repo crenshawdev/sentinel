@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Install the tools check.sh runs, on Arch Linux.
+#
+# pacman needs root and runs through sudo. The cargo tools install into
+# ~/.cargo/bin with cargo install, and semgrep, pip-audit and bandit install
+# into ~/.local/bin with pipx; neither needs root.
+set -euo pipefail
+
+command -v pacman >/dev/null || { echo "install.sh: this script is for Arch Linux (pacman not found)" >&2; exit 2; }
+
+# rustup conflicts with the rust package; if rust is installed, pacman asks
+# whether to replace it.
+sudo pacman -S --needed base-devel git openssl pkgconf python python-pipx nodejs npm rustup
+
+# cargo-geiger needs a recent stable toolchain; cargo fuzz needs nightly.
+rustup update stable
+rustup default >/dev/null 2>&1 || rustup default stable
+rustup component add clippy --toolchain stable
+rustup toolchain install nightly --profile minimal
+
+cargo install --locked cargo-audit cargo-deny cargo-geiger cargo-vet cargo-fuzz
+
+for pkg in semgrep pip-audit bandit; do
+    if pipx list --short 2>/dev/null | grep -q "^$pkg "; then
+        pipx upgrade "$pkg"
+    else
+        pipx install "$pkg"
+    fi
+done
+pipx ensurepath
+
+echo
+echo "Installed. If ~/.cargo/bin or ~/.local/bin is new to your PATH, open a new shell before running check.sh."
