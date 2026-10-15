@@ -60,7 +60,9 @@ Never ask for the key in the conversation and never print it. When they say it i
 Add a `SECURITY.md` with:
 
 - How to report a vulnerability. Ask the user for the contact or channel; never make one up.
-- What the security pipeline is, with a link to https://github.com/crenshawdev/sentinel.
+- What runs on every pull request: the workflows from step 6, what each one checks, and whether it fails the pull request.
+- What the full audit runs, step by step, following the pipeline in `.sentinel/README.md`. Name every lens and its concern, and give how many runs each lens gets on which model and the total, as defaults. Take the lens list from `.sentinel/lenses/` and the run counts from `.sentinel/fanout.sh`, not from memory. Name models as Claude and OpenAI's Codex, never by version.
+- A link to https://github.com/crenshawdev/sentinel.
 - That every confirmed finding becomes a regression test.
 
 ## Finish
