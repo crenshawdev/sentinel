@@ -131,7 +131,13 @@ Findings of the same lens that cite the same file with overlapping line ranges b
 
 ## CI
 
-The workflows expect sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy them into `.github/workflows/` or `.forgejo/workflows/`, and add the secrets `ANTHROPIC_API_KEY` (and `OPENAI_API_KEY` for `full.yml`). If the project needs system libraries to build, add them to the install step.
+The workflows expect sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy them into `.github/workflows/` or `.forgejo/workflows/`, and add the secrets `ANTHROPIC_API_KEY` (and `OPENAI_API_KEY` for `full.yml`). GitHub keeps Actions secrets per repository, encrypted in its settings and never in git, so each repo needs its own; `/snt:onboard` sets it from your environment without showing the key:
+
+```sh
+printenv SENTINEL_ANTHROPIC_API_KEY | gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
+```
+
+If the project needs system libraries to build, add them to the install step.
 
 `fast.yml` runs on every pull request. The `mechanical` job runs check.sh with the gating tools on GitHub and Forgejo. The `security-review` job then runs `anthropics/claude-code-security-review`, pinned to a commit, on the diff, on GitHub only, because that action reads the pull request and posts comments through api.github.com. That action's own documentation says it is not hardened against prompt injection and should only review trusted pull requests; require approval for workflows from outside contributors.
 
