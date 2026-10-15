@@ -50,9 +50,16 @@ trap 'rm -rf "$work"' EXIT
 excludes=(":(exclude)audit" ":(exclude)CLAUDE-SECURITY-*")
 rel=$(realpath --relative-to="$repo" "$sentinel")
 [[ $rel == .. || $rel == ../* ]] || excludes+=(":(exclude)$rel")
+# A submodule shows up in the first listing as one directory, and copying that
+# directory whole would bring in files its own .gitignore excludes (.env,
+# target/). So directories are never copied recursively; the files inside
+# submodules come from the second listing, which names each tracked file.
 mkdir "$work/repo"
-git -C "$repo" ls-files -z --cached --others --exclude-standard -- . "${excludes[@]}" |
-    tar -c -f - -C "$repo" --null --ignore-failed-read -T - |
+{
+    git -C "$repo" ls-files -z --cached --others --exclude-standard -- . "${excludes[@]}"
+    git -C "$repo" ls-files -z --cached --recurse-submodules -- . "${excludes[@]}"
+} | sort -zu |
+    tar -c -f - -C "$repo" --null --no-recursion --ignore-failed-read -T - |
     tar -x -f - -C "$work/repo"
 
 # Claude: --safe-mode skips the user's and the repo's hooks, plugins, MCP
