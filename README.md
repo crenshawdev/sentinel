@@ -31,7 +31,7 @@ What `/snt:audit` runs, in order:
 1. **Mechanical checks.** `.sentinel/mechanical/check.sh .`
 2. **Context map.** The Trail of Bits `audit-context-building` skill maps the code; its `audit-context/DOSSIER.md` is copied to `audit/CONTEXT.md`.
 3. **Claude Security scan.** `/claude-security`, a codebase scan of the whole repo. Its report is copied to `audit/claude-security.md`.
-4. **Lenses and merge.** `.sentinel/fanout.sh . 3`, then `.sentinel/import-claude-security.sh` to add the step 3 findings, then `.sentinel/merge.sh`. Asks before starting, because this is the step that bills model runs: 8 lenses × (runs per lens + 1).
+4. **Lenses and merge.** `.sentinel/fanout.sh . 3`, then `.sentinel/import-claude-security.sh` to add the step 3 findings, then `.sentinel/merge.sh`. Asks before starting, because this is the expensive step: 8 lenses × (runs per lens + 1), on your Claude plan and your OpenAI key.
 5. **Adjudication.** `adjudicator.md`, run as a subagent. Every confirmed finding gets a failing test under `tests/security/` (in a Cargo workspace, the member crate's `tests/security/`), and the session reruns each test to check it really fails.
 6. **Variant analysis.** The Trail of Bits `variant-analysis` skill looks for the same pattern elsewhere for each confirmed finding; new hits are adjudicated the same way.
 7. **Findings log.** One row per step in `audit/findings-log.md`.
@@ -102,17 +102,16 @@ Settings, set as environment variables:
 | `SENTINEL_EFFORT` | `high` | Claude effort (`--effort`) |
 | `SENTINEL_CODEX_MODEL` | `gpt-6-astra` | Codex model (`-m`); set it to an empty string for Codex's own default |
 | `SENTINEL_CODEX_EFFORT` | `xhigh` | Codex `model_reasoning_effort` |
-| `SENTINEL_CODEX_SANDBOX` | `read-only` | Codex `--sandbox` |
 | `SENTINEL_RUN_TIMEOUT` | `3600` | Seconds before a single run is killed |
 
-Billing: Claude runs in `--safe-mode`. With an API key set, it bills the key; without one, it runs on your logged-in plan. fanout.sh reads `SENTINEL_ANTHROPIC_API_KEY` first and `ANTHROPIC_API_KEY` second. On a workstation, put the key in your shell profile as `SENTINEL_ANTHROPIC_API_KEY`: exported as `ANTHROPIC_API_KEY`, every interactive Claude Code session would see it alongside your claude.ai login. CI sets `ANTHROPIC_API_KEY` on the fanout step only, which is fine. The key must be scoped to a workspace in the Anthropic Console; an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
+Billing: Claude runs in `--safe-mode` on your logged-in claude.ai plan. To bill an API key instead, set `SENTINEL_ANTHROPIC_API_KEY`, or `ANTHROPIC_API_KEY`, which is what CI sets on its fanout step. Don't export `ANTHROPIC_API_KEY` on a workstation: every interactive Claude Code session would see it alongside your claude.ai login. A key must be scoped to a workspace in the Anthropic Console; an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
 
 What the reviewers can and cannot do:
 
 - They read a snapshot of the repo's tracked and untracked-but-not-ignored files in a private temp directory, so no run sees another run's output and nothing they do touches your working tree. `audit/`, `CLAUDE-SECURITY-*/` and the sentinel directory are left out of the snapshot.
 - Claude gets only the Read, Grep and Glob tools, with nothing pre-approved, so any read or search outside the snapshot (your home directory, `/proc`) is refused. (`--bare` would drop Grep and Glob on Linux, which is why the runs use `--safe-mode`.) The repo's `.claude/settings.json`, hooks and MCP servers are not loaded, and neither are your own hooks, plugins, MCP servers or CLAUDE.md. Sessions are not saved.
 - Each CLI gets only its own API key.
-- Codex's read-only sandbox blocks writes. Without an API key, Codex loads your global `AGENTS.md`.
+- Codex runs under a permission profile that makes only the snapshot, the system folders its commands need and its own install folder readable, with no writes and no network. The commands it runs get only basic variables such as `PATH` and `HOME`, never `CODEX_API_KEY`. Codex's own `--sandbox read-only` is not used: it lets commands read the whole disk, home directory included, and silently overrides the profile. Without an API key, Codex loads your global `AGENTS.md`.
 
 ## import-claude-security.sh
 
@@ -132,10 +131,10 @@ Findings of the same lens that cite the same file with overlapping line ranges b
 
 ## CI
 
-The workflows expect sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy them into `.github/workflows/` or `.forgejo/workflows/`, and add the secrets `ANTHROPIC_API_KEY` (and `OPENAI_API_KEY` for `full.yml`). GitHub keeps Actions secrets per repository, encrypted in its settings and never in git, so each repo needs its own; `/snt:onboard` sets it from your environment without showing the key:
+The workflows expect sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy them into `.github/workflows/` or `.forgejo/workflows/`, and add the secrets `ANTHROPIC_API_KEY` (and `OPENAI_API_KEY` for `full.yml`). GitHub keeps Actions secrets per repository, encrypted in its settings and never in git, so each repo needs its own; `/snt:onboard` asks you to set it in your own terminal, where `gh` prompts for the key so it never passes through Claude:
 
 ```sh
-printenv SENTINEL_ANTHROPIC_API_KEY | gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
+gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
 ```
 
 If the project needs system libraries to build, add them to the install step.

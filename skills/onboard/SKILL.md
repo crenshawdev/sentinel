@@ -47,13 +47,13 @@ Copy `.sentinel/mechanical/deny.toml` to the repo root and adjust the license al
 
 Copy `.sentinel/ci/fast.yml` into `.github/workflows/fast.yml`, or into `.forgejo/workflows/fast.yml` if the repo lives on a Forgejo instance (check `git remote -v`). The file works on both. Do not add `full.yml` yet.
 
-The workflow's security-review job runs on GitHub only and needs the repo's `ANTHROPIC_API_KEY` Actions secret. If the repo has a GitHub remote, check with `gh secret list -R <owner>/<repo>`. If the secret is missing, ask the user before setting it, then set it from their environment so the key is never shown, typed, or written to a file:
+The workflow's security-review job runs on GitHub only and needs the repo's `ANTHROPIC_API_KEY` Actions secret. If the repo has a GitHub remote, check with `gh secret list -R <owner>/<repo>`. If the secret is missing, tell the user to set it in their own terminal, where `gh` prompts for the key so it never passes through the conversation:
 
 ```
-printenv SENTINEL_ANTHROPIC_API_KEY | gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
+gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
 ```
 
-If `SENTINEL_ANTHROPIC_API_KEY` is not set in the environment, do not ask the user to paste the key into the conversation; tell them to run that command themselves once it is. Never print the key.
+Never ask for the key in the conversation and never print it. When they say it is done, check again with `gh secret list`.
 
 ## 7. SECURITY.md
 

@@ -26,14 +26,13 @@ claude plugin install audit-context-building@trailofbits
 claude plugin install variant-analysis@trailofbits
 ```
 
-**Keys.** Put these in `~/.zshenv`:
+**Keys.** Claude runs on your claude.ai login, so it needs no key on your machine. Codex uses an OpenAI key; put it in `~/.zshenv`:
 
 ```sh
-export SENTINEL_ANTHROPIC_API_KEY=sk-ant-...   # a key scoped to a workspace in the Anthropic Console
 export OPENAI_API_KEY=sk-...
 ```
 
-Do not export `ANTHROPIC_API_KEY`. Every interactive Claude Code session would see it next to your claude.ai login and ask which one to use. fanout.sh hands the key to its own `claude -p` runs and nowhere else. The key must be scoped to a workspace: an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. A workspace just for audits also gives you a spend limit and separate usage.
+Keep the Anthropic API key in your password manager. Its only job is the GitHub secret for the pull request review (onboarding step 6). It must be scoped to a workspace: an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Never export `ANTHROPIC_API_KEY` in your shell: every interactive Claude Code session would see it next to your claude.ai login. If you ever want audits billed to an API key instead of your plan, export it as `SENTINEL_ANTHROPIC_API_KEY`; fanout.sh hands it to its own runs only.
 
 **CLIs.** `claude` and `codex` on PATH.
 
@@ -54,7 +53,7 @@ It stops after each step for you to look. If a step is already done, it says so 
 | 3. Security-guidance rules | `.claude/claude-security-guidance.md`: a short threat model plus a codebase-specific checklist, which the security-guidance plugin adds to its reviews | It stays well under 8 KB and holds no secrets. |
 | 4. Fuzz targets (Rust) | cargo-fuzz targets for every function that parses outside input (JSONL, config, CLI, MCP payloads), in the crate that owns it, each one built | They all compile and the main build still works. It also reports whether the code has `unsafe`; check.sh runs Miri on its own when it does. |
 | 5. deny.toml (Rust) | The baseline copied to the repo root, its license list fitted to the real dependencies, then `cargo deny check` | Read the output. Nothing gets fixed yet. |
-| 6. Fast CI workflow | `.github/workflows/fast.yml` (or `.forgejo/workflows/`), and the repo's `ANTHROPIC_API_KEY` Actions secret set from your environment after it asks you | `gh secret list -R <owner>/<repo>` shows the secret. The key lives encrypted in GitHub's settings, never in git. |
+| 6. Fast CI workflow | `.github/workflows/fast.yml` (or `.forgejo/workflows/`), and the repo's `ANTHROPIC_API_KEY` Actions secret, which you set in your own terminal with `gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>` when it asks | `gh secret list -R <owner>/<repo>` shows the secret. The key lives encrypted in GitHub's settings, never in git. |
 | 7. SECURITY.md | How to report, a link to sentinel, and the rule that every confirmed finding becomes a regression test | It asks you for the reporting contact. It never makes one up. |
 
 At the end it lists every file it created or changed. It does not commit; review the list and commit it yourself.
@@ -76,7 +75,7 @@ The default is 3 Claude runs per lens. `/snt:audit 5` runs 5. It stops after eac
 | 1. Mechanical checks | `check.sh`: cargo audit, cargo deny, clippy and semgrep as gates; geiger, vet, fuzz build, Miri, npm audit, pip-audit and bandit as reports | Failures by tool. Nothing gets fixed in this session. |
 | 2. Context map | The Trail of Bits `audit-context-building` skill maps the code; its dossier is saved as `audit/CONTEXT.md` | Whether the map matches how you know the code works. Every later reviewer reads it first. |
 | 3. Claude Security scan | `/claude-security`, a codebase scan of the whole repo; its report is copied to `audit/claude-security.md` | The report itself. Its findings join the merge in step 4. |
-| 4. Lenses and merge | Asks first, because this is the step that bills: 8 lenses × (runs + 1), 32 runs at the default. Then fanout.sh, the Claude Security import and merge.sh. | `audit/<timestamp>/merged.md`: the count per lens, and which findings came back in only one run (`low-agreement`). |
+| 4. Lenses and merge | Asks first, because this is the expensive step: 8 lenses × (runs + 1), 32 runs at the default, on your Claude plan and your OpenAI key. Then fanout.sh, the Claude Security import and merge.sh. | `audit/<timestamp>/merged.md`: the count per lens, and which findings came back in only one run (`low-agreement`). |
 | 5. Adjudication | A subagent runs `adjudicator.md` on the merged list and writes a failing test for every finding it can prove. Then the session reruns each test itself. | The final table: CONFIRMED, UNPROVEN, DROPPED, each with its reason and test path. |
 | 6. Variant analysis | For each confirmed finding, the Trail of Bits `variant-analysis` skill looks for the same mistake elsewhere; new hits are adjudicated the same way | New rows in the table. |
 | 7. Findings log | One row per step in `audit/findings-log.md`: reported, confirmed, unproven, dropped, and what the noise looked like | Whether a lens keeps producing noise. That's how the lenses get tuned. |
