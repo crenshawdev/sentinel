@@ -81,7 +81,7 @@ Gates fail the run when they fail or when the tool is not installed. Everything 
 | `cargo +nightly fuzz build` | a `fuzz/` directory at the root or in any workspace member | report |
 | `cargo +nightly miri test --workspace --lib --bins` (unit tests only: Miri cannot run tests that start processes) | the repo's own Rust code has an `unsafe` block, fn, impl, trait or extern | report |
 | `npm audit` | `package.json` and `package-lock.json` exist | report |
-| `pip-audit` | `pyproject.toml` with a `[project]` table, or `requirements.txt` | report |
+| `pip-audit -r requirements.txt` and `pip-audit .`, one run for each that applies | `requirements.txt`, and `pyproject.toml` with a `[project]` table | report |
 | `bandit -r .` | `pyproject.toml` or `requirements.txt` exists | report |
 
 semgrep runs with `--metrics=off`. `semgrep.yml` also lists rules to skip: the three p/rust rules that flag reading the program's arguments or its own path (`args`, `args-os`, `current-exe`), which fire on every command-line tool.

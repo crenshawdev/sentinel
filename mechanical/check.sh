@@ -143,14 +143,18 @@ else
 fi
 
 if [[ -f pyproject.toml || -f requirements.txt ]]; then
-    pip_args=()
-    [[ -f requirements.txt ]] && pip_args+=(-r requirements.txt)
-    grep -q '^\[project\]' pyproject.toml 2>/dev/null && pip_args+=(.)
-    if [[ ${#pip_args[@]} -gt 0 ]]; then
-        step report "pip-audit" pip-audit pip-audit "${pip_args[@]}"
-    else
-        skip "pip-audit" "pyproject.toml has no [project] table and there is no requirements.txt"
+    # pip-audit takes a requirements file or a project path, not both, so a
+    # repo with both gets one run for each.
+    audited=0
+    if [[ -f requirements.txt ]]; then
+        step report "pip-audit (requirements.txt)" pip-audit pip-audit -r requirements.txt
+        audited=1
     fi
+    if grep -q '^\[project\]' pyproject.toml 2>/dev/null; then
+        step report "pip-audit (pyproject.toml)" pip-audit pip-audit .
+        audited=1
+    fi
+    [[ $audited -eq 1 ]] || skip "pip-audit" "pyproject.toml has no [project] table and there is no requirements.txt"
     step report "bandit" bandit bandit -r . \
         -x ./.git,./.venv,./venv,./node_modules,./target,./audit,./.tox,./__pycache__
 else
