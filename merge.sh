@@ -36,7 +36,11 @@ run_dir = sys.argv[1]
 finding_re = re.compile(r"^##\s+Finding:\s*(.*)$")
 none_re = re.compile(r"^##\s+No findings\s*$", re.I)
 heading_re = re.compile(r"^##\s")
-field_re = re.compile(r"^\s*[-*]\s*(" + "|".join(FIELDS) + r")\s*:\s?(.*)$", re.I)
+# Any heading that looks like a finding but is not exactly "## Finding:".
+finding_like_re = re.compile(r"^#{1,6}\s*Finding\b", re.I)
+# Fields start at column 0, so an indented line inside a field's text can
+# never be taken for a new field.
+field_re = re.compile(r"^[-*]\s*(" + "|".join(FIELDS) + r")\s*:\s?(.*)$", re.I)
 loc_re = re.compile(r"^(.+?):L?(\d+)(?:\s*[-–]\s*L?(\d+))?$")
 
 
@@ -48,8 +52,12 @@ def strip_outer_fence(text):
 
 
 def parse(text):
-    """Return (findings, saw_no_findings_marker)."""
-    findings, cur, field, fenced, none_marker = [], None, None, False, False
+    """Return (findings, saw_no_findings_marker, problems).
+
+    problems names every block that did not follow finding-format.md, so a
+    malformed finding is reported instead of silently dropped or merged into
+    the finding before it."""
+    findings, cur, field, fenced, none_marker, problems = [], None, None, False, False, []
     for line in strip_outer_fence(text).splitlines():
         if line.lstrip().startswith("```"):
             fenced = not fenced
@@ -63,17 +71,28 @@ def parse(text):
             if none_re.match(line):
                 none_marker, cur, field = True, None, None
                 continue
+            if finding_like_re.match(line):
+                problems.append(f"finding heading not in the expected form: {line.strip()!r}")
+                cur, field = None, None
+                continue
             if heading_re.match(line):
                 cur, field = None, None
                 continue
             m = field_re.match(line)
             if m and cur is not None:
-                field = m.group(1).lower()
+                name = m.group(1).lower()
+                if name in cur:
+                    # A second "- location:" and so on means a second finding
+                    # without its own heading; keep the first one intact.
+                    problems.append(f"field {name!r} repeated after finding {cur.get('title', '')!r}; the rest of that block was not read")
+                    cur, field = None, None
+                    continue
+                field = name
                 cur[field] = m.group(2).rstrip()
                 continue
         if cur is not None and field is not None:
             cur[field] = cur[field] + "\n" + line.rstrip()
-    return findings, none_marker
+    return findings, none_marker, problems
 
 
 def parse_location(raw):
@@ -100,13 +119,17 @@ if not lenses:
 stats = {}
 reports = []  # one entry per reported finding
 unparsed_total = 0
+malformed_total = 0
 for lens in lenses:
     runs = sorted(f for f in os.listdir(os.path.join(run_dir, lens)) if f.endswith(".md"))
-    s = {"runs": len(runs), "none": 0, "unparsed": 0, "reports": 0}
+    s = {"runs": len(runs), "none": 0, "unparsed": 0, "malformed": 0, "reports": 0}
     for run in runs:
         path = os.path.join(run_dir, lens, run)
         with open(path, encoding="utf-8", errors="replace") as fh:
-            found, none_marker = parse(fh.read())
+            found, none_marker, problems = parse(fh.read())
+        for problem in problems:
+            print(f"merge.sh: {path}: {problem}", file=sys.stderr)
+        s["malformed"] += len(problems)
         if not found:
             if none_marker:
                 s["none"] += 1
@@ -130,6 +153,7 @@ for lens in lenses:
             })
             s["reports"] += 1
     unparsed_total += s["unparsed"]
+    malformed_total += s["malformed"]
     stats[lens] = s
 
 # Group by lens and file, then merge overlapping line ranges.
@@ -209,13 +233,16 @@ out = [
     "in the same file with overlapping line ranges were merged into one. Which run or model reported a",
     "finding has been removed. Titles, triggers and consequences are every distinct version the runs gave.",
     "",
-    "| lens | runs | runs with no findings | runs not parsed | reports | merged findings |",
-    "|------|------|-----------------------|-----------------|---------|-----------------|",
+    "| lens | runs | runs with no findings | runs not parsed | malformed blocks | reports | merged findings |",
+    "|------|------|-----------------------|-----------------|------------------|---------|-----------------|",
 ]
 for lens in lenses:
     s = stats[lens]
     n = sum(1 for m in merged if m["lens"] == lens)
-    out.append(f"| {lens} | {s['runs']} | {s['none']} | {s['unparsed']} | {s['reports']} | {n} |")
+    out.append(f"| {lens} | {s['runs']} | {s['none']} | {s['unparsed']} | {s['malformed']} | {s['reports']} | {n} |")
+if malformed_total:
+    out += ["", f"Finding blocks that did not follow the finding format and are not in this list: {malformed_total}. "
+                "merge.sh named them on stderr; read those run outputs by hand."]
 if unparsed_total:
     out += ["", f"Run outputs that did not follow the finding format and are not in this list: {unparsed_total}. "
                 "merge.sh named them on stderr; read them by hand."]
