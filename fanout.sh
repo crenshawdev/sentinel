@@ -7,6 +7,7 @@
 # Writes <repo-dir>/audit/<timestamp>/<lens>/<run>.md (1.md .. N.md, codex.md),
 # a <run>.log next to each, and run.txt describing the audit. A run that fails
 # leaves only its .log, so merge.sh never parses an error message as a report.
+# When <repo-dir>/audit/CONTEXT.md exists, it goes at the top of every prompt.
 set -euo pipefail
 
 MODEL="${SENTINEL_MODEL:-opus}"
@@ -34,6 +35,8 @@ sentinel=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 lenses=("$sentinel"/lenses/*.md)
 ts=$(date -u +%Y%m%dT%H%M%SZ)
 out="$repo/audit/$ts"
+# The architectural map from the audit-context-building step, if it ran.
+context="$repo/audit/CONTEXT.md"
 mkdir -p "$out"
 
 work=$(mktemp -d)
@@ -42,8 +45,9 @@ trap 'rm -rf "$work"' EXIT
 # Reviewers read a snapshot of the repo's tracked and untracked-but-not-ignored
 # files, not the repo itself. Every run sees the same files, no run can read
 # another run's output under audit/, and nothing a reviewer does can touch the
-# real working tree. The kit itself is left out when it lives inside the repo.
-excludes=(":(exclude)audit")
+# real working tree. The kit itself is left out when it lives inside the repo,
+# and so are /claude-security reports, which would hand reviewers its findings.
+excludes=(":(exclude)audit" ":(exclude)CLAUDE-SECURITY-*")
 rel=$(realpath --relative-to="$repo" "$sentinel")
 [[ $rel == .. || $rel == ../* ]] || excludes+=(":(exclude)$rel")
 mkdir "$work/repo"
@@ -89,6 +93,7 @@ fi
     echo "claude: model $MODEL, effort $EFFORT, runs per lens $runs, auth: $claude_auth"
     echo "codex: model ${CODEX_MODEL:-default}, effort $CODEX_EFFORT, sandbox $CODEX_SANDBOX, auth: $codex_auth"
     echo "lenses: $(basename -s .md -a "${lenses[@]}" | tr '\n' ' ')"
+    echo "context map: $([[ -f $context ]] && echo "audit/CONTEXT.md, put at the top of every lens prompt" || echo "none (no audit/CONTEXT.md)")"
 } > "$out/run.txt"
 cat "$out/run.txt"
 echo
@@ -145,7 +150,21 @@ for lens_file in "${lenses[@]}"; do
     lens=$(basename "$lens_file" .md)
     mkdir -p "$out/$lens"
     prompt="$work/$lens.prompt.md"
-    { cat "$lens_file"; echo; cat "$sentinel/finding-format.md"; } > "$prompt"
+    {
+        if [[ -f $context ]]; then
+            echo "## Architectural map of this repository"
+            echo
+            echo "This map was written before the review to save you reading time. Treat it as a guide, and trust the code where they disagree."
+            echo
+            cat "$context"
+            echo
+            echo "---"
+            echo
+        fi
+        cat "$lens_file"
+        echo
+        cat "$sentinel/finding-format.md"
+    } > "$prompt"
 
     pids=()
     for ((i = 1; i <= runs; i++)); do

@@ -14,7 +14,7 @@ on:
   pull_request:
 
 env:
-  SENTINEL_DIR: sentinel
+  SENTINEL_DIR: .sentinel
 
 permissions:
   contents: read

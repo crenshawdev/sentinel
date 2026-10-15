@@ -6,7 +6,8 @@
 # Gates (a failure, or the tool missing, makes the exit code non-zero):
 #   cargo audit, cargo deny, cargo clippy, semgrep
 # Reported only (output shown, exit code ignored):
-#   cargo geiger, cargo vet, cargo fuzz build, npm audit, pip-audit, bandit
+#   cargo geiger, cargo vet, cargo fuzz build, cargo miri test (only when the
+#   repo has unsafe code), npm audit, pip-audit, bandit
 set -uo pipefail
 
 mech=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
@@ -61,12 +62,17 @@ if [[ -f Cargo.toml ]]; then
     step gate "cargo clippy" "$(cargo_sub clippy)" \
         cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
 
+    # Manifest paths of every workspace member (or the one package).
+    members() {
+        cargo metadata --no-deps --format-version 1 |
+            python3 -c 'import json,sys; print("\n".join(p["manifest_path"] for p in json.load(sys.stdin)["packages"]))'
+    }
+
     # cargo geiger cannot run on a virtual workspace manifest, so run it on
     # each workspace member.
     geiger() {
         local manifests rc=0 m
-        manifests=$(cargo metadata --no-deps --format-version 1 |
-            python3 -c 'import json,sys; print("\n".join(p["manifest_path"] for p in json.load(sys.stdin)["packages"]))') || return 1
+        manifests=$(members) || return 1
         while IFS= read -r m; do
             echo "-- $m"
             cargo geiger --manifest-path "$m" || rc=$?
@@ -81,10 +87,33 @@ if [[ -f Cargo.toml ]]; then
         skip "cargo vet" "no supply-chain/ directory; run cargo vet init to start"
     fi
 
-    if [[ -d fuzz ]]; then
-        step report "cargo fuzz build" "$(cargo_sub fuzz)" cargo +nightly fuzz build
+    # fuzz/ can sit at the repo root or inside any workspace member.
+    fuzz_dirs=()
+    while IFS= read -r d; do
+        [[ -f $d/fuzz/Cargo.toml ]] && fuzz_dirs+=("$d")
+    done < <({ echo "$repo"; members 2>/dev/null | xargs -r -d '\n' -n1 dirname; } | sort -u)
+    fuzz_build() {
+        local rc=0 d
+        for d in "${fuzz_dirs[@]}"; do
+            echo "-- $d/fuzz"
+            (cd "$d" && cargo +nightly fuzz build) || rc=$?
+        done
+        return "$rc"
+    }
+    if [[ ${#fuzz_dirs[@]} -gt 0 ]]; then
+        step report "cargo fuzz build" "$(cargo_sub fuzz)" fuzz_build
     else
-        skip "cargo fuzz build" "no fuzz/ directory"
+        skip "cargo fuzz build" "no fuzz/ directory at the root or in any workspace member"
+    fi
+
+    # Miri checks unsafe code for undefined behavior, so it runs only when the
+    # repo's own Rust code has an unsafe block, fn, impl, trait or extern.
+    if grep -rqE --include='*.rs' --exclude-dir=target --exclude-dir=.git \
+        --exclude-dir=vendor --exclude-dir=third_party \
+        'unsafe[[:space:]]*(\{|fn|impl|trait|extern)' .; then
+        step report "cargo miri test" "$(cargo_sub miri)" cargo +nightly miri test --workspace --lib --bins
+    else
+        skip "cargo miri test" "no unsafe code in the repo's own Rust files"
     fi
 else
     skip "cargo checks" "no Cargo.toml"

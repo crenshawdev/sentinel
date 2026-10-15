@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Merge the per-run lens reports of one audit into merged.md for the adjudicator.
 #
-# Usage: merge.sh <audit-run-dir>      e.g. merge.sh audit/20261015T120000Z
+# Usage: merge.sh [audit-run-dir]      e.g. merge.sh audit/20261015T120000Z
+#        With no argument, merges the newest run under ./audit/.
 #
 # Reads <audit-run-dir>/<lens>/*.md, groups findings of the same lens whose
 # locations are in the same file with overlapping line ranges, counts how many
@@ -11,13 +12,19 @@
 # silently.
 set -euo pipefail
 
-if [[ $# -ne 1 || ! -d $1 ]]; then
-    echo "usage: $(basename "$0") <audit-run-dir>" >&2
+if [[ $# -gt 1 ]]; then
+    echo "usage: $(basename "$0") [audit-run-dir]" >&2
     exit 2
 fi
+run_dir=${1:-}
+if [[ -z $run_dir ]]; then
+    run_dir=$(find audit -mindepth 1 -maxdepth 1 -type d -name '2*' 2>/dev/null | sort | tail -n 1)
+    [[ -n $run_dir ]] || { echo "merge.sh: no audit runs under ./audit/; pass the run directory" >&2; exit 2; }
+fi
+[[ -d $run_dir ]] || { echo "merge.sh: $run_dir is not a directory" >&2; exit 2; }
 command -v python3 >/dev/null || { echo "merge.sh: python3 not found" >&2; exit 2; }
 
-python3 -I - "$1" <<'PY'
+python3 -I - "$run_dir" <<'PY'
 import os
 import re
 import sys

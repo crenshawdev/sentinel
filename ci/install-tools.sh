@@ -6,8 +6,8 @@
 # Usage: install-tools.sh [--all]
 #   default  the gating tools only: cargo-audit, cargo-deny and clippy when the
 #            repo has a Cargo.toml, and semgrep
-#   --all    also the reported tools: cargo-geiger, cargo-vet, cargo-fuzz with
-#            a nightly toolchain, pip-audit and bandit
+#   --all    also the reported tools: cargo-geiger, cargo-vet, cargo-fuzz and
+#            Miri with a nightly toolchain, pip-audit and bandit
 #
 # Works as root without sudo (Forgejo runner images) and as a normal user with
 # sudo (GitHub runners). New PATH entries are written to $GITHUB_PATH, which
@@ -39,7 +39,7 @@ if [[ -f Cargo.toml ]]; then
     tools=(cargo-audit cargo-deny)
     if [[ $all -eq 1 ]]; then
         tools+=(cargo-geiger cargo-vet cargo-fuzz)
-        rustup toolchain install nightly --profile minimal
+        rustup toolchain install nightly --profile minimal --component miri
     fi
     cargo install --locked "${tools[@]}"
 fi

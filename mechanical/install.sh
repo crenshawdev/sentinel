@@ -15,11 +15,12 @@ pkgs=(base-devel git openssl pkgconf python python-pipx nodejs npm)
 command -v rustup >/dev/null || pkgs+=(rustup)
 sudo pacman -S --needed "${pkgs[@]}"
 
-# cargo-geiger needs a recent stable toolchain; cargo fuzz needs nightly.
+# cargo-geiger needs a recent stable toolchain; cargo fuzz and Miri need nightly.
 rustup update stable
 rustup default >/dev/null 2>&1 || rustup default stable
 rustup component add clippy --toolchain stable
 rustup toolchain install nightly --profile minimal
+rustup component add miri --toolchain nightly
 
 cargo install --locked cargo-audit cargo-deny cargo-geiger cargo-vet cargo-fuzz
 
