@@ -4,6 +4,10 @@ Ask a model to security-review a repository twice and you get two different list
 
 It is plain files and bash, with small embedded Python scripts that use only the standard library, packaged as a Claude Code plugin so the whole pipeline runs from one command. It is tuned for Rust command-line tools, hooks and MCP servers that work with Claude Code transcripts, and it also covers Node and Python projects.
 
+## Status
+
+sentinel is the audit kit I run on my own tools. It is public so the approach can be read, and it is MIT-licensed, so copy anything useful. It is not packaged or supported for anyone else to depend on: paths, defaults and prompts change whenever my own projects need them to, and I don't take issues or pull requests.
+
 ## Using it
 
 Install the plugin once:
