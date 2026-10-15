@@ -109,7 +109,7 @@ On a public repo, keep confirmed findings to yourself until they're fixed: no is
 
 | When | What to do |
 |------|------------|
-| Every pull request | `fast.yml` runs by itself: the mechanical gates, then Anthropic's security review on the diff. It only runs on pull requests; pushes straight to `main` skip it. |
+| Every pull request | `fast.yml` runs by itself: the mechanical gates, then Claude Opus 5.5 reviews the diff and posts the result as a comment. The check fails if the review didn't actually run. It only runs on pull requests; pushes straight to `main` skip it. |
 | Before a release | `/snt:audit`, then a fix session for whatever it confirms. |
 | When the tool gains a new input, output, command or hook | Update `THREAT-MODEL.md` and `.claude/claude-security-guidance.md` first, then audit. The lenses only look for what the threat model says matters. |
 | When sentinel changes | Move the project's pin and commit it: `git submodule update --remote .sentinel` |

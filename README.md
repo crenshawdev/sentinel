@@ -56,6 +56,7 @@ Everything the pipeline writes goes under `audit/`, apart from the tests. `/snt:
 | `mechanical/semgrep.yml` | The semgrep rulesets check.sh runs, and the rules it skips. |
 | `ci/fast.yml`, `ci/full.yml` | Workflows for GitHub Actions and Forgejo Actions. |
 | `ci/install-tools.sh` | Installs the mechanical tools on a Debian or Ubuntu CI runner. |
+| `ci/security-review.sh`, `ci/security-review.md` | The pull request review `fast.yml` runs, and its prompt. |
 | `findings-log.md` | The template for a project's `audit/findings-log.md`. |
 
 ## Requirements
@@ -139,7 +140,9 @@ printenv SENTINEL_ANTHROPIC_API_KEY | gh secret set ANTHROPIC_API_KEY -R <owner>
 
 If the project needs system libraries to build, add them to the install step.
 
-`fast.yml` runs on every pull request. The `mechanical` job runs check.sh with the gating tools on GitHub and Forgejo. The `security-review` job then runs `anthropics/claude-code-security-review`, pinned to a commit, on the diff, on GitHub only, because that action reads the pull request and posts comments through api.github.com. That action's own documentation says it is not hardened against prompt injection and should only review trusted pull requests; require approval for workflows from outside contributors.
+`fast.yml` runs on every pull request. The `mechanical` job runs check.sh with the gating tools on GitHub and Forgejo. The `security-review` job then runs `ci/security-review.sh`, on GitHub only, because it posts its result as a pull request comment through the GitHub API. It installs a pinned Claude Code (2.1.300) on Node 22, has Claude Opus 5.5 review the pull request's diff against `THREAT-MODEL.md` with only the Read, Grep and Glob tools and none of the pull request's own `.claude` settings loaded, and writes the review in the finding format. The job fails when the review did not run or its output holds neither findings nor a "No findings" marker, so a passing check means a review happened. Findings do not fail the job; they are posted for the author to read.
+
+The diff is untrusted input, and text in it can try to steer the review. The prompt tells Claude to treat it as data, which narrows that but cannot rule it out, so the review is for trusted pull requests; require approval for workflows from outside contributors. `SENTINEL_REVIEW_MODEL` and `SENTINEL_REVIEW_EFFORT` override the model and effort.
 
 `full.yml` runs on demand and at 06:00 UTC on the 1st of each month: check.sh with every tool, fanout.sh with 3 runs per lens, merge.sh, and `audit/` uploaded as the `sentinel-audit` artifact, kept 14 days. It does not run the context map, the Claude Security scan or adjudication; those need a session. The API keys are set only on the fanout step, never while check.sh builds the project. Anyone who can download the repo's workflow artifacts can read the findings, so on a public repo run it somewhere private.
 
