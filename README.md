@@ -56,7 +56,6 @@ Everything the pipeline writes goes under `audit/`, apart from the tests. `/snt:
 | `mechanical/semgrep.yml` | The semgrep rulesets check.sh runs, and the rules it skips. |
 | `ci/fast.yml`, `ci/full.yml` | Workflows for GitHub Actions and Forgejo Actions. |
 | `ci/install-tools.sh` | Installs the mechanical tools on a Debian or Ubuntu CI runner. |
-| `attack/` | The black-box attack step. Placeholders for now. |
 | `findings-log.md` | The template for a project's `audit/findings-log.md`. |
 
 ## Requirements
@@ -145,4 +144,3 @@ On Forgejo, the `ubuntu-latest` label must be mapped to an image on the runner, 
 - Checking every `[VERIFY]` mark `/snt:onboard` leaves in `THREAT-MODEL.md`, and keeping the threat model current.
 - Fixing confirmed findings. That is a separate session; `/snt:audit` only finds, proves and records.
 - Committing. Neither skill commits anything.
-- The black-box attack step in `attack/`, which is not written yet.
