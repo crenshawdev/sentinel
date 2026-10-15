@@ -16,7 +16,6 @@ EFFORT="${SENTINEL_EFFORT:-high}"
 # reads ~/.codex/config.toml. SENTINEL_CODEX_MODEL="" uses Codex's own default.
 CODEX_MODEL="${SENTINEL_CODEX_MODEL-gpt-6-astra}"
 CODEX_EFFORT="${SENTINEL_CODEX_EFFORT:-xhigh}"
-CODEX_SANDBOX="${SENTINEL_CODEX_SANDBOX:-read-only}"
 RUN_TIMEOUT="${SENTINEL_RUN_TIMEOUT:-3600}"   # seconds per run
 
 die() { echo "fanout.sh: $*" >&2; exit 2; }
@@ -99,7 +98,7 @@ fi
     echo "sentinel commit: $(git -C "$sentinel" rev-parse --verify -q HEAD 2>/dev/null || echo none)"
     echo "started: $ts"
     echo "claude: model $MODEL, effort $EFFORT, runs per lens $runs, auth: $claude_auth"
-    echo "codex: model ${CODEX_MODEL:-default}, effort $CODEX_EFFORT, sandbox $CODEX_SANDBOX, auth: $codex_auth"
+    echo "codex: model ${CODEX_MODEL:-default}, effort $CODEX_EFFORT, reads limited to the snapshot, auth: $codex_auth"
     echo "lenses: $(basename -s .md -a "${lenses[@]}" | tr '\n' ' ')"
     echo "context map: $([[ -f $context ]] && echo "audit/CONTEXT.md, put at the top of every lens prompt" || echo "none (no audit/CONTEXT.md)")"
 } > "$out/run.txt"
@@ -135,7 +134,20 @@ run_claude() { # lens prompt run
 
 run_codex() { # lens prompt
     local dest="$out/$1/codex" start=$SECONDS rc=0
-    local args=(exec --cd "$work/repo" --skip-git-repo-check --sandbox "$CODEX_SANDBOX" --ephemeral
+    # Codex's --sandbox read-only lets the model's commands read the whole disk
+    # (home directory, keys), and it silently overrides any permission profile,
+    # so it is not used. The "audit" profile makes only the system directories
+    # commands need and the snapshot readable, with no writes and no network.
+    # inherit="core" passes the commands PATH, HOME and the like, never
+    # CODEX_API_KEY or any other key.
+    # Codex runs each command through its own program, so the folder it is
+    # installed in has to be readable too.
+    local codex_root
+    codex_root=$(dirname "$(dirname "$(realpath "$(command -v codex)")")")
+    local args=(exec --cd "$work/repo" --skip-git-repo-check --ephemeral
+                -c 'default_permissions="audit"'
+                -c "permissions.audit.filesystem={\":minimal\"=\"read\", \":workspace_roots\"=\"read\", \"$codex_root\"=\"read\"}"
+                -c 'shell_environment_policy.inherit="core"'
                 -c "model_reasoning_effort=$CODEX_EFFORT" -c project_doc_max_bytes=0
                 -o "$dest.md.part")
     [[ -z $CODEX_MODEL ]] || args+=(-m "$CODEX_MODEL")
