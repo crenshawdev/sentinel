@@ -29,7 +29,7 @@ jobs:
   mechanical:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
           # Builds run the pull request's code; keep the token out of .git/config.
@@ -40,7 +40,10 @@ jobs:
         run: '"$SENTINEL_DIR/mechanical/check.sh" .'
 
   security-review:
-    if: github.server_url == 'https://github.com'
+    # Dependabot's pull requests get no Actions secrets, so the review could
+    # never run on them; their dependency changes go through the mechanical
+    # job's dependency checks instead.
+    if: github.server_url == 'https://github.com' && github.event.pull_request.user.login != 'dependabot[bot]'
     needs: mechanical
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -48,7 +51,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -57,7 +60,7 @@ jobs:
           persist-credentials: false
       # Claude Code needs Node 22 or newer; older Node gets an old CLI that
       # cannot run current models.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - name: Install Claude Code
@@ -73,7 +76,7 @@ jobs:
         run: '"$SENTINEL_DIR/ci/security-review.sh" "origin/$BASE_REF"'
       - name: Upload the encrypted review
         if: ${{ !cancelled() && hashFiles('security-review.md.age') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: security-review
           path: security-review.md.age

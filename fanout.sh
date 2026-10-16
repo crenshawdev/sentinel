@@ -147,9 +147,17 @@ run_codex() { # lens prompt
     # inherit="core" passes the commands PATH, HOME and the like, never
     # CODEX_API_KEY or any other key.
     # Codex runs each command through its own program, so the folder it is
-    # installed in has to be readable too.
-    local codex_root
-    codex_root=$(dirname "$(dirname "$(realpath "$(command -v codex)")")")
+    # installed in has to be readable too. When codex sits in a shared folder
+    # (~/.local/bin, ~/.cargo/bin, /usr/bin and the like), the folder above
+    # holds other programs' files, ~/.cargo/credentials.toml among them, so
+    # only the binary's own folder is made readable.
+    local codex_bin codex_root
+    codex_bin=$(dirname "$(realpath "$(command -v codex)")")
+    codex_root=$(dirname "$codex_bin")
+    case $codex_root in
+        / | /usr | /usr/local | /opt | "$HOME"/.local | "$HOME"/.cargo) codex_root=$codex_bin ;;
+    esac
+    [[ $HOME != "$codex_root" && $HOME != "$codex_root"/* ]] || codex_root=$codex_bin
     local args=(exec --cd "$work/repo" --skip-git-repo-check --ephemeral
                 -c 'default_permissions="audit"'
                 -c "permissions.audit.filesystem={\":minimal\"=\"read\", \":workspace_roots\"=\"read\", \"$codex_root\"=\"read\"}"
