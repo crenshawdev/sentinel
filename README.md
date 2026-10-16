@@ -148,7 +148,7 @@ On a public repo the comment, the job log and the job summary are public, and a 
 .sentinel/ci/read-review.sh <pull request number>
 ```
 
-It finds the newest `sentinel-fast` run for the pull request's head commit, downloads the artifact to a temporary folder and decrypts it with `~/.config/sentinel/age.key`, or the identity in `SENTINEL_AGE_IDENTITY` or its second argument. Without the variable the whole review is posted, as before.
+It finds the newest `fast.yml` run for the pull request's head commit, downloads the artifact to a temporary folder, and prints it with control characters removed after decrypting it with `~/.config/sentinel/age.key`, or the identity in `SENTINEL_AGE_IDENTITY` or its second argument. Without the variable the whole review is posted, as before.
 
 The diff is untrusted input, and text in it can try to steer the review. The prompt tells Claude to treat it as data, which narrows that but cannot rule it out, so the review is for trusted pull requests; require approval for workflows from outside contributors. `SENTINEL_REVIEW_MODEL` and `SENTINEL_REVIEW_EFFORT` override the model and effort.
 

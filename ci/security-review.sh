@@ -24,6 +24,9 @@ kit=$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")
 model="${SENTINEL_REVIEW_MODEL:-claude-opus-5-5}"
 effort="${SENTINEL_REVIEW_EFFORT:-high}"
 out=security-review.md
+# The checkout is the pull request's own tree. Remove any review files it
+# carries, so nothing but this run's output can be posted or uploaded.
+rm -f "$out" "$out.age"
 
 [[ -n ${ANTHROPIC_API_KEY:-} ]] || { echo "::error::ANTHROPIC_API_KEY is not set, so no review can run"; exit 1; }
 recipient=${SENTINEL_REVIEW_AGE_RECIPIENT:-}

@@ -3,8 +3,8 @@
 #
 # Usage: read-review.sh <pull-request-number> [age-identity-file]
 #
-# Run it inside the repo's checkout. It finds the newest sentinel-fast run for
-# the pull request's head commit, downloads that run's security-review artifact
+# Run it inside the repo's checkout. It finds the newest fast.yml run for the
+# pull request's head commit, downloads that run's security-review artifact
 # into a temporary folder, decrypts it with your age identity and prints it.
 # The identity is the second argument, else $SENTINEL_AGE_IDENTITY, else
 # ~/.config/sentinel/age.key. The temporary folder is removed afterwards.
@@ -19,10 +19,13 @@ done
 [[ -r $identity ]] || { echo "read-review.sh: no age identity at $identity" >&2; exit 2; }
 
 sha=$(gh pr view "$pr" --json headRefOid -q .headRefOid)
-run=$(gh run list --workflow sentinel-fast --commit "$sha" --json databaseId -q '.[0].databaseId')
-[[ -n $run ]] || { echo "read-review.sh: no sentinel-fast run for pull request $pr at $sha" >&2; exit 1; }
+# By file name, not the workflow's display name, which another workflow could share.
+run=$(gh run list --workflow fast.yml --commit "$sha" --json databaseId -q '.[0].databaseId')
+[[ -n $run ]] || { echo "read-review.sh: no fast.yml run for pull request $pr at $sha" >&2; exit 1; }
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 gh run download "$run" -n security-review -D "$tmp"
-age -d -i "$identity" "$tmp/security-review.md.age"
+# The review is model output about untrusted code, so control characters
+# (terminal escapes included) are removed before it reaches the terminal.
+age -d -i "$identity" "$tmp/security-review.md.age" | LC_ALL=C tr -d '\000-\010\013-\037\177'
