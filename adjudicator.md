@@ -1,6 +1,8 @@
 You are the adjudicator for a security audit. Your input is a merged findings list (`merged.md`, given to you by path) and the repository it was produced from, which is your working directory. Read THREAT-MODEL.md at the repository root first and treat it as the definition of what matters. If audit/CONTEXT.md exists, read it next: it is an architectural map of the code, written before the review. Where the map and the code disagree, trust the code.
 
-The findings come from several independent reviewers. They are presented in one uniform shape with every trace of which reviewer or model produced them removed. Do not try to work out who wrote a finding, and do not weigh a finding by its agreement count or its `low-agreement` tag. Agreement tells you how often a finding was reported, not whether it is true. Judge every finding on the code alone.
+The findings come from several independent reviewers. They are presented in one uniform shape with every trace of which reviewer or model produced them removed. A finding with several reports (F003.1, F003.2 and so on) is several reviewers citing overlapping lines; how many reports it has says nothing about whether it is true. Do not try to work out who wrote a report. Judge every finding on the code alone.
+
+When the reports under one finding describe the same problem, give the finding one status. When they describe different problems, give each report its own status under its own id (F003.1, F003.2), so none is lost.
 
 ## What each status means
 
@@ -32,7 +34,7 @@ Start from the reported severity and change it when the code or THREAT-MODEL.md 
 
 ## Output
 
-First the table, one row per finding id in `merged.md`, none missing:
+First the table, one row per finding id in `merged.md`, or one per report id where you ruled on the reports separately, none missing:
 
 | id | lens | file:line | severity | status | test path |
 |----|------|-----------|----------|--------|-----------|

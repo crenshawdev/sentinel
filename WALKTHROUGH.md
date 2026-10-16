@@ -75,7 +75,7 @@ The default is 3 Claude runs per lens. `/snt:audit 5` runs 5. It stops after eac
 | 1. Mechanical checks | `check.sh`: cargo audit, cargo deny, clippy and semgrep as gates; geiger, vet, fuzz build, Miri, npm audit, pip-audit and bandit as reports | Failures by tool. Nothing gets fixed in this session. |
 | 2. Context map | The Trail of Bits `audit-context-building` skill maps the code; its dossier is saved as `audit/CONTEXT.md` | Whether the map matches how you know the code works. Every later reviewer reads it first. |
 | 3. Claude Security scan | `/claude-security`, a codebase scan of the whole repo; its report is copied to `audit/claude-security.md` | The report itself. Its findings join the merge in step 4. |
-| 4. Lenses and merge | Asks first, because this is the expensive step: 8 lenses × (runs + 1), 32 runs at the default, on your Claude plan and your OpenAI key. Then fanout.sh, the Claude Security import and merge.sh. | `audit/<timestamp>/merged.md`: the count per lens, and which findings came back in only one run (`low-agreement`). |
+| 4. Lenses and merge | Asks first, because this is the expensive step: 8 lenses × (runs + 1), 32 runs at the default, on your Claude plan and your OpenAI key. Then fanout.sh, the Claude Security import and merge.sh. | `audit/<timestamp>/agreement.md`: the count per lens, and which findings came back in only one run (`low-agreement`). The adjudicator gets `merged.md`, which has no counts. |
 | 5. Adjudication | A subagent runs `adjudicator.md` on the merged list and writes a failing test for every finding it can prove. Then the session reruns each test itself. | The final table: CONFIRMED, UNPROVEN, DROPPED, each with its reason and test path. |
 | 6. Variant analysis | For each confirmed finding, the Trail of Bits `variant-analysis` skill looks for the same mistake elsewhere; new hits are adjudicated the same way | New rows in the table. |
 | 7. Findings log | One row per step in `audit/findings-log.md`: reported, confirmed, unproven, dropped, and what the noise looked like | Whether a lens keeps producing noise. That's how the lenses get tuned. |
@@ -86,7 +86,7 @@ Where everything lands:
 |------|---------------|
 | `audit/CONTEXT.md` | The architectural map |
 | `audit/claude-security.md` | The Claude Security report |
-| `audit/<timestamp>/` | Every lens run, `merged.md`, `adjudication.md`, `variants.md` |
+| `audit/<timestamp>/` | Every lens run, `merged.md`, `agreement.md`, `adjudication.md`, `variants.md` |
 | `audit/findings-log.md` | The running log for this repo |
 | `tests/security/` | The failing tests (in a Cargo workspace, under the member crate) |
 

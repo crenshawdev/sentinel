@@ -44,7 +44,7 @@ Before starting, tell the user how many paid model runs this is (8 lenses × (ru
 2. Run `.sentinel/import-claude-security.sh <the CLAUDE-SECURITY directory from step 3> audit/<timestamp>`. It adds the Claude Security findings to the run as one more run of each lens, in the same shape as the lens runs, so the merge dedupes them, counts them in the agreement, and strips where they came from like every other run. Findings whose CWE matches no lens go to an `other` lens.
 3. Run `.sentinel/merge.sh audit/<timestamp>`.
 
-Show the user `audit/<timestamp>/merged.md`: the counts table per lens and the agreement tags. If fanout.sh reported failed runs or merge.sh named outputs it could not parse, say which.
+Show the user `audit/<timestamp>/agreement.md`: the counts table per lens and which findings only one run reported. agreement.md is for the user only; never give it to the adjudicator. If fanout.sh reported failed runs or merge.sh named outputs it could not parse, say which.
 
 ## 5. Adjudicate
 

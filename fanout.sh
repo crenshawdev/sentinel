@@ -97,6 +97,7 @@ fi
     echo "uncommitted changes: $([[ -n $(git -C "$repo" status --porcelain -- . "${excludes[@]}") ]] && echo yes || echo no)"
     echo "sentinel commit: $(git -C "$sentinel" rev-parse --verify -q HEAD 2>/dev/null || echo none)"
     echo "started: $ts"
+    echo "snapshot: $work/repo"
     echo "claude: model $MODEL, effort $EFFORT, runs per lens $runs, auth: $claude_auth"
     echo "codex: model ${CODEX_MODEL:-default}, effort $CODEX_EFFORT, reads limited to the snapshot, auth: $codex_auth"
     echo "lenses: $(basename -s .md -a "${lenses[@]}" | tr '\n' ' ')"

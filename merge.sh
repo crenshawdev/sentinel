@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Merge the per-run lens reports of one audit into merged.md for the adjudicator.
+# Merge the per-run lens reports of one audit into merged.md for the adjudicator
+# and agreement.md for the user.
 #
 # Usage: merge.sh [audit-run-dir]      e.g. merge.sh audit/20261015T120000Z
 #        With no argument, merges the newest run under ./audit/.
 #
-# Reads <audit-run-dir>/<lens>/*.md, groups findings of the same lens whose
-# locations are in the same file with overlapping line ranges, counts how many
-# runs reported each group, removes which run (and so which model) reported it,
-# and writes <audit-run-dir>/merged.md. Run outputs that do not follow
-# finding-format.md are named on stderr and counted in merged.md, never dropped
-# silently.
+# Reads <audit-run-dir>/<lens>/*.md and puts reports of the same lens and file
+# under one finding only when their line ranges all overlap and none covers
+# more than 30 lines. Each report keeps its own title, trigger and consequence.
+# merged.md removes which run (and so which model) wrote each report and holds
+# no agreement counts; agreement.md holds the counts and is never given to the
+# adjudicator. Run outputs that do not follow finding-format.md are named on
+# stderr and counted in agreement.md, never dropped silently.
 set -euo pipefail
 
 if [[ $# -gt 1 ]]; then
@@ -41,7 +43,22 @@ finding_like_re = re.compile(r"^#{1,6}\s*Finding\b", re.I)
 # Fields start at column 0, so an indented line inside a field's text can
 # never be taken for a new field.
 field_re = re.compile(r"^[-*]\s*(" + "|".join(FIELDS) + r")\s*:\s?(.*)$", re.I)
-loc_re = re.compile(r"^(.+?):L?(\d+)(?:\s*[-–]\s*L?(\d+))?$")
+# path:line, path:line-line, with an optional :column after either line.
+loc_re = re.compile(r"^(.+?):L?(\d+)(?::\d+)?(?:\s*[-–]\s*L?(\d+)(?::\d+)?)?$")
+# A report covering more than this many lines is never merged with another:
+# one wide range would otherwise swallow every finding inside it.
+WIDE = 30
+
+# fanout.sh records where the reviewers' snapshot was, so an absolute path
+# into it can be made relative again.
+snapshot = None
+try:
+    with open(os.path.join(run_dir, "run.txt"), encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("snapshot: "):
+                snapshot = line[len("snapshot: "):].strip().rstrip("/") + "/"
+except FileNotFoundError:
+    pass
 
 
 def strip_outer_fence(text):
@@ -97,6 +114,8 @@ def parse(text):
 
 def parse_location(raw):
     loc = raw.strip().strip("`").strip()
+    if snapshot and loc.startswith(snapshot):
+        loc = loc[len(snapshot):]
     m = loc_re.match(loc)
     if not m:
         return loc, None, None
@@ -156,30 +175,46 @@ for lens in lenses:
     malformed_total += s["malformed"]
     stats[lens] = s
 
-# Group by lens and file, then merge overlapping line ranges.
+# Group by lens and file. A report joins a group only when its range overlaps
+# every report already in it, so ranges never chain, and a wide report stays on
+# its own. Splitting too much costs the adjudicator one "duplicate of" line;
+# merging too much loses a finding.
+def overlaps(a, b):
+    return a["start"] <= b["end"] and b["start"] <= a["end"]
+
+
+def wide(r):
+    return r["end"] - r["start"] + 1 > WIDE
+
+
 groups = []
 by_key = {}
 for r in reports:
     by_key.setdefault((r["lens"], r["file"]), []).append(r)
 for (lens, file), rs in by_key.items():
-    located = sorted((r for r in rs if r["start"] is not None), key=lambda r: (r["start"], r["end"]))
     for r in (r for r in rs if r["start"] is None):
         groups.append([r])
-    cur, cur_end = [], None
-    for r in located:
-        if cur and r["start"] <= cur_end:
-            cur.append(r)
-            cur_end = max(cur_end, r["end"])
+    file_groups = []
+    for r in sorted((r for r in rs if r["start"] is not None), key=lambda r: (r["start"], r["end"])):
+        home = None
+        if not wide(r):
+            home = next((g for g in file_groups
+                         if not wide(g[0]) and all(overlaps(r, m) for m in g)), None)
+        if home is None:
+            file_groups.append([r])
         else:
-            if cur:
-                groups.append(cur)
-            cur, cur_end = [r], r["end"]
-    if cur:
-        groups.append(cur)
+            home.append(r)
+    groups += file_groups
 
 
 def sev_rank(s):
     return SEVERITIES.index(s) if s in SEVERITIES else len(SEVERITIES)
+
+
+def span(file, start, end):
+    if start is None:
+        return file
+    return f"{file}:{start}" if start == end else f"{file}:{start}-{end}"
 
 
 def summarize(g):
@@ -188,23 +223,20 @@ def summarize(g):
         loc, first = file, 0
     else:
         first, last = min(r["start"] for r in g), max(r["end"] for r in g)
-        loc = f"{file}:{first}" if first == last else f"{file}:{first}-{last}"
-    sev = min((r["severity"] for r in g), key=sev_rank)
+        loc = span(file, first, last)
     counts = {}
     for r in g:
         counts[r["severity"]] = counts.get(r["severity"], 0) + 1
     return {
-        "lens": lens, "file": file, "first": first, "loc": loc, "severity": sev,
+        "lens": lens, "file": file, "first": first, "loc": loc,
+        "severity": min((r["severity"] for r in g), key=sev_rank),
         "sev_counts": sorted(counts.items(), key=lambda kv: sev_rank(kv[0])),
         "runs": len({r["run"] for r in g}),
         "total_runs": stats[lens]["runs"],
-        "reports": len(g),
+        # Each report kept whole, sorted so their order says nothing about
+        # which run wrote them.
+        "reports": sorted(g, key=lambda r: (r["title"], r["trigger"], r["consequence"], r["severity"])),
         "unproven": sum(1 for r in g if r["trigger"].upper().startswith("UNPROVEN")),
-        # Sorted so the order of the text says nothing about which run wrote it.
-        "titles": sorted({r["title"] for r in g if r["title"]}),
-        "triggers": sorted({r["trigger"] for r in g if r["trigger"]}),
-        "consequences": sorted({r["consequence"] for r in g if r["consequence"]}),
-        "related": sorted({x for r in g for x in r["related"]}),
         "unparsed_location": g[0]["start"] is None,
     }
 
@@ -213,25 +245,49 @@ merged = sorted((summarize(g) for g in groups),
                 key=lambda m: (sev_rank(m["severity"]), m["lens"], m["file"], m["first"]))
 
 
-def bullet_list(items):
-    out = []
-    for item in items:
-        lines = item.splitlines()
-        out.append("  - " + lines[0])
-        out.extend("    " + l if l else "" for l in lines[1:])
-    return out or ["  - (none given)"]
+def field(name, text):
+    lines = text.splitlines() or ["(none given)"]
+    return [f"- {name}: {lines[0]}"] + ["  " + l if l else "" for l in lines[1:]]
 
 
-low = sum(1 for m in merged if m["runs"] == 1)
+def report_lines(r, with_location):
+    out = [f"- location: {span(r['file'], r['start'], r['end'])}"] if with_location else []
+    return out + (field("title", r["title"]) + [f"- severity: {r['severity']}"]
+                  + field("trigger", r["trigger"]) + field("consequence", r["consequence"])
+                  + [f"- related: {', '.join(r['related']) if r['related'] else 'none'}"])
+
+
+audit = os.path.basename(os.path.normpath(run_dir))
+
+# merged.md, for the adjudicator: the findings and nothing about how often each
+# was reported.
 out = [
     "# Merged findings",
     "",
-    f"Audit: {os.path.basename(os.path.normpath(run_dir))}",
+    f"Audit: {audit}",
     "",
-    f"{len(merged)} findings, {low} of them low-agreement (reported by one run only).",
-    "Each finding is one location reported by one or more runs of the same lens. Findings of the same lens",
-    "in the same file with overlapping line ranges were merged into one. Which run or model reported a",
-    "finding has been removed. Titles, triggers and consequences are every distinct version the runs gave.",
+    f"{len(merged)} findings. Reports of the same lens in the same file are listed under one finding only when",
+    f"their line ranges all overlap and none covers more than {WIDE} lines. Each report is kept whole, in title",
+    "order, and which reviewer or model wrote it has been removed.",
+]
+for i, m in enumerate(merged, 1):
+    fid = f"F{i:03d}"
+    out += ["", f"## {fid}", f"- lens: {m['lens']}", f"- location: {m['loc']}"]
+    if len(m["reports"]) == 1:
+        out += report_lines(m["reports"][0], with_location=False)
+    else:
+        for j, r in enumerate(m["reports"], 1):
+            out += ["", f"### {fid}.{j}"] + report_lines(r, with_location=True)
+
+# agreement.md, for the user: how often each finding came back.
+low = sum(1 for m in merged if m["runs"] == 1)
+ag = [
+    "# Agreement",
+    "",
+    f"Audit: {audit}",
+    "",
+    "How often each finding in merged.md was reported. Agreement says how often a finding came back, not whether",
+    "it is true, so this file is never given to the adjudicator.",
     "",
     "| lens | runs | runs with no findings | runs not parsed | malformed blocks | reports | merged findings |",
     "|------|------|-----------------------|-----------------|------------------|---------|-----------------|",
@@ -239,43 +295,35 @@ out = [
 for lens in lenses:
     s = stats[lens]
     n = sum(1 for m in merged if m["lens"] == lens)
-    out.append(f"| {lens} | {s['runs']} | {s['none']} | {s['unparsed']} | {s['malformed']} | {s['reports']} | {n} |")
+    ag.append(f"| {lens} | {s['runs']} | {s['none']} | {s['unparsed']} | {s['malformed']} | {s['reports']} | {n} |")
 if malformed_total:
-    out += ["", f"Finding blocks that did not follow the finding format and are not in this list: {malformed_total}. "
-                "merge.sh named them on stderr; read those run outputs by hand."]
+    ag += ["", f"Finding blocks that did not follow the finding format and are not in merged.md: {malformed_total}. "
+               "merge.sh named them on stderr; read those run outputs by hand."]
 if unparsed_total:
-    out += ["", f"Run outputs that did not follow the finding format and are not in this list: {unparsed_total}. "
-                "merge.sh named them on stderr; read them by hand."]
-
+    ag += ["", f"Run outputs that did not follow the finding format and are not in merged.md: {unparsed_total}. "
+               "merge.sh named them on stderr; read them by hand."]
+ag += [
+    "",
+    f"{len(merged)} findings, {low} of them low-agreement (reported by one run only).",
+    "",
+    "| finding | lens | location | runs | severities reported | notes |",
+    "|---------|------|----------|------|---------------------|-------|",
+]
 for i, m in enumerate(merged, 1):
-    tags = []
+    notes = []
     if m["runs"] == 1:
-        tags.append("low-agreement")
+        notes.append("low-agreement")
     if m["unparsed_location"]:
-        tags.append("location-unparsed")
-    sev_detail = ", ".join(f"{s} {c}" for s, c in m["sev_counts"])
-    out += [
-        "",
-        f"## F{i:03d}",
-        f"- lens: {m['lens']}",
-        f"- location: {m['loc']}",
-        f"- severity: {m['severity']} (reported as: {sev_detail})",
-        f"- agreement: {m['runs']} of {m['total_runs']} runs",
-    ]
-    if tags:
-        out.append(f"- tags: {', '.join(tags)}")
+        notes.append("location-unparsed")
     if m["unproven"]:
-        out.append(f"- trigger marked UNPROVEN in {m['unproven']} of {m['reports']} reports")
-    out.append("- title:")
-    out += bullet_list(m["titles"])
-    out.append("- trigger:")
-    out += bullet_list(m["triggers"])
-    out.append("- consequence:")
-    out += bullet_list(m["consequences"])
-    out.append(f"- related: {', '.join(m['related']) if m['related'] else 'none'}")
+        notes.append(f"trigger UNPROVEN in {m['unproven']} of {len(m['reports'])} reports")
+    sevs = ", ".join(f"{s} {c}" for s, c in m["sev_counts"])
+    loc = m["loc"].replace("|", "\\|")
+    ag.append(f"| F{i:03d} | {m['lens']} | {loc} | {m['runs']} of {m['total_runs']} | {sevs} | {', '.join(notes)} |")
 
-dest = os.path.join(run_dir, "merged.md")
-with open(dest, "w", encoding="utf-8") as fh:
-    fh.write("\n".join(out) + "\n")
-print(dest)
+for name, lines in (("merged.md", out), ("agreement.md", ag)):
+    dest = os.path.join(run_dir, name)
+    with open(dest, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    print(dest)
 PY

@@ -48,7 +48,7 @@ Everything the pipeline writes goes under `audit/`, apart from the tests. `/snt:
 | `finding-format.md` | The output format every lens must use. fanout.sh appends it to each lens; merge.sh parses it. |
 | `fanout.sh` | Runs every lens N times through `claude -p` and once through `codex exec`. |
 | `import-claude-security.sh` | Adds a `/claude-security` scan's findings to an audit run as one more run of each lens. |
-| `merge.sh` | Merges the runs into `merged.md`, with which model reported what removed. |
+| `merge.sh` | Merges the runs into `merged.md` for the adjudicator, with which model reported what removed, and `agreement.md` for you. |
 | `adjudicator.md` | The prompt for the adjudication pass. |
 | `mechanical/check.sh` | Runs cargo audit, cargo deny, clippy, semgrep and the rest, depending on what the repo contains. |
 | `mechanical/install.sh` | Installs those tools on Arch Linux. |
@@ -127,7 +127,7 @@ Reads the scan's `CLAUDE-SECURITY-RESULTS.jsonl` and writes `<run>/<lens>/claude
 merge.sh [audit-run-dir]
 ```
 
-Findings of the same lens that cite the same file with overlapping line ranges become one finding. It counts how many runs reported each one and tags those reported by a single run `low-agreement`. It keeps every distinct title, trigger and consequence the runs gave and removes which run wrote them. Run outputs that do not follow the finding format are named on stderr and counted in `merged.md`; they are never dropped silently. Findings are not merged across lenses, because two lenses citing the same lines are usually describing different problems. With no run directory, it uses the newest run under `./audit/`.
+Reports of the same lens that cite the same file go under one finding only when their line ranges all overlap and none covers more than 30 lines, so one wide range can't swallow the findings inside it. Each report keeps its own title, severity, trigger and consequence, and which run wrote it is removed. It writes two files. `merged.md` is for the adjudicator and holds no agreement counts. `agreement.md` is for you: how many runs reported each finding, those reported by a single run tagged `low-agreement`, and the counts per lens. A trailing `:column` on a location is dropped, and an absolute path into the reviewers' snapshot is made relative using the path fanout.sh records in `run.txt`. Run outputs that do not follow the finding format are named on stderr and counted in `agreement.md`; they are never dropped silently. Findings are not merged across lenses, because two lenses citing the same lines are usually describing different problems. With no run directory, it uses the newest run under `./audit/`.
 
 ## CI
 
