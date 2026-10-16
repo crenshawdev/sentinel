@@ -23,6 +23,17 @@ sha=$(gh pr view "$pr" --json headRefOid -q .headRefOid)
 run=$(gh run list --workflow fast.yml --commit "$sha" --json databaseId -q '.[0].databaseId')
 [[ -n $run ]] || { echo "read-review.sh: no fast.yml run for pull request $pr at $sha" >&2; exit 1; }
 
+# A pull request runs its own copy of fast.yml, so a run from a fork can upload
+# any file under the review's name. A fork's run never gets the API key and so
+# never holds a real review: only a pull_request run of this repository's own
+# fast.yml, from a branch of this repository, is read.
+repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+origin=$(gh api "repos/$repo/actions/runs/$run" --jq '"\(.event) \(.path) \(.head_repository.full_name)"')
+if [[ $origin != "pull_request .github/workflows/fast.yml $repo" ]]; then
+    echo "read-review.sh: run $run is not a pull_request run of $repo's own .github/workflows/fast.yml ($origin), so its review is not read" >&2
+    exit 1
+fi
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 gh run download "$run" -n security-review -D "$tmp"
