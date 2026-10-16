@@ -32,9 +32,10 @@ What `/snt:audit` runs, in order:
 2. **Context map.** The Trail of Bits `audit-context-building` skill maps the code; its `audit-context/DOSSIER.md` is copied to `audit/CONTEXT.md`.
 3. **Claude Security scan.** `/claude-security`, a codebase scan of the whole repo. Its report is copied to `audit/claude-security.md`.
 4. **Lenses and merge.** `.sentinel/fanout.sh . 3`, then `.sentinel/import-claude-security.sh` to add the step 3 findings, then `.sentinel/merge.sh`. Asks before starting, because this is the expensive step: 8 lenses × (runs per lens + 1), on your Claude plan and your OpenAI key.
-5. **Adjudication.** `adjudicator.md`, run as a subagent. Every confirmed finding gets a failing test under `tests/security-unfixed/` (in a Cargo workspace, the member crate's), skipped by default so the normal test run stays green, and the session reruns each test to check it really fails. The fix session moves each test to `tests/security/` with its fix.
-6. **Variant analysis.** The Trail of Bits `variant-analysis` skill looks for the same pattern elsewhere for each confirmed finding; new hits are adjudicated the same way.
-7. **Findings log.** One row per step in `audit/findings-log.md`.
+5. **Adjudication.** `adjudicator.md`, run as a fresh subagent for each batch of 10 findings, one batch at a time. A finding is confirmed only by a failing test that enters through a way in THREAT-MODEL.md names. Each test goes under `tests/security-unfixed/` (in a Cargo workspace, the member crate's), skipped by default so the normal test run stays green, and the session reruns each test to check it really fails. The fix session moves each test to `tests/security/` with its fix.
+6. **Refute.** `refuter.md`, run as a fresh subagent per batch, sees only the CONFIRMED and DROPPED rulings and tries to prove each one wrong: it reruns every confirmed test and checks every drop's reason against the code. Every ruling that does not hold comes to you.
+7. **Variant analysis.** The Trail of Bits `variant-analysis` skill looks for the same pattern elsewhere for each confirmed finding; new hits are adjudicated and refuted the same way.
+8. **Findings log.** One row per step in `audit/findings-log.md`.
 
 Everything the pipeline writes goes under `audit/`, apart from the context map's `audit-context/` folder and the tests. `/snt:onboard` puts `audit/`, `audit-context/`, `CLAUDE-SECURITY-*/` and `security-unfixed/` in `.gitignore`, because they hold unfixed vulnerability findings, the tests that prove them and the map the reviewers worked from. fanout.sh also leaves all four out of the reviewers' snapshot.
 
@@ -50,6 +51,8 @@ Everything the pipeline writes goes under `audit/`, apart from the context map's
 | `import-claude-security.sh` | Adds a `/claude-security` scan's findings to an audit run as one more run of each lens. |
 | `merge.sh` | Merges the runs into `merged.md` for the adjudicator, with which model reported what removed, and `agreement.md` for you. |
 | `adjudicator.md` | The prompt for the adjudication pass. |
+| `refuter.md` | The prompt for the refute pass. |
+| `skills/<name>/steps.md` | The steps of `/snt:audit` and `/snt:onboard`. The plugin's skills are short stubs that read these from the project's `.sentinel`, so the steps always match the pinned kit. |
 | `mechanical/check.sh` | Runs cargo audit, cargo deny, clippy, semgrep and the rest, depending on what the repo contains. |
 | `mechanical/install.sh` | Installs those tools on Arch Linux. |
 | `mechanical/deny.toml` | cargo-deny baseline. A repo's own `deny.toml` takes precedence. |
