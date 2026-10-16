@@ -8,6 +8,12 @@
 # runs on GitHub only, because it posts its review as a pull request comment
 # through the GitHub API, and a job skipped by its `if:` never downloads its
 # actions.
+#
+# On a public repo, set the repository variable SENTINEL_REVIEW_AGE_RECIPIENT
+# to your age public key. The review is then encrypted and uploaded as the
+# `security-review` artifact, and the comment, log and job summary show only
+# the count of findings. `.sentinel/ci/read-review.sh <pull request number>`
+# decrypts it on your machine. Without the variable the whole review is posted.
 name: sentinel-fast
 
 on:
@@ -56,11 +62,22 @@ jobs:
           node-version: 22
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code@2.1.300
+      - name: Install age
+        if: vars.SENTINEL_REVIEW_AGE_RECIPIENT != ''
+        run: sudo apt-get update -q && sudo apt-get install -y -q age
       - name: Review the diff
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BASE_REF: ${{ github.base_ref }}
+          SENTINEL_REVIEW_AGE_RECIPIENT: ${{ vars.SENTINEL_REVIEW_AGE_RECIPIENT }}
         run: '"$SENTINEL_DIR/ci/security-review.sh" "origin/$BASE_REF"'
+      - name: Upload the encrypted review
+        if: ${{ !cancelled() && hashFiles('security-review.md.age') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-review
+          path: security-review.md.age
+          retention-days: 14
       - name: Post the review
         env:
           GH_TOKEN: ${{ github.token }}

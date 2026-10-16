@@ -53,7 +53,7 @@ It stops after each step for you to look. If a step is already done, it says so 
 | 3. Security-guidance rules | `.claude/claude-security-guidance.md`: a short threat model plus a codebase-specific checklist, which the security-guidance plugin adds to its reviews | It stays well under 8 KB and holds no secrets. |
 | 4. Fuzz targets (Rust) | cargo-fuzz targets for every function that parses outside input (JSONL, config, CLI, MCP payloads), in the crate that owns it, each one built | They all compile and the main build still works. It also reports whether the code has `unsafe`; check.sh runs Miri on its own when it does. |
 | 5. deny.toml (Rust) | The baseline copied to the repo root, its license list fitted to the real dependencies, then `cargo deny check` | Read the output. Nothing gets fixed yet. |
-| 6. Fast CI workflow | `.github/workflows/fast.yml` (or `.forgejo/workflows/`), and the repo's `ANTHROPIC_API_KEY` Actions secret, which you set in your own terminal with `gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>` when it asks | `gh secret list -R <owner>/<repo>` shows the secret. The key lives encrypted in GitHub's settings, never in git. |
+| 6. Fast CI workflow | `.github/workflows/fast.yml` (or `.forgejo/workflows/`), and the repo's `ANTHROPIC_API_KEY` Actions secret, which you set in your own terminal with `gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>` when it asks. On a public repo, also the `SENTINEL_REVIEW_AGE_RECIPIENT` variable holding your age public key, so reviews are encrypted instead of posted | `gh secret list -R <owner>/<repo>` shows the secret and `gh variable list -R <owner>/<repo>` the variable. The key lives encrypted in GitHub's settings, never in git. |
 | 7. SECURITY.md | How to report, a link to sentinel, and the rule that every confirmed finding becomes a regression test | It asks you for the reporting contact. It never makes one up. |
 
 At the end it lists every file it created or changed. It does not commit; review the list and commit it yourself.
@@ -108,7 +108,7 @@ On a public repo, keep confirmed findings to yourself until they're fixed: no is
 
 | When | What to do |
 |------|------------|
-| Every pull request | `fast.yml` runs by itself: the mechanical gates, then Claude Opus 5.5 reviews the diff and posts the result as a comment. The check fails if the review didn't actually run. It only runs on pull requests; pushes straight to `main` skip it. |
+| Every pull request | `fast.yml` runs by itself: the mechanical gates, then Claude Opus 5.5 reviews the diff and posts the result as a comment. On a public repo with the age variable set, the comment holds only the count of findings; read the review with `.sentinel/ci/read-review.sh <pull request number>`. The check fails if the review didn't actually run. It only runs on pull requests; pushes straight to `main` skip it. |
 | Before a release | `/snt:audit`, then a fix session for whatever it confirms. |
 | When the tool gains a new input, output, command or hook | Update `THREAT-MODEL.md` and `.claude/claude-security-guidance.md` first, then audit. The lenses only look for what the threat model says matters. |
 | When sentinel changes | Move the project's pin and commit it: `git submodule update --remote .sentinel` |

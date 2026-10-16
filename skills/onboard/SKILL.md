@@ -55,6 +55,20 @@ gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
 
 Never ask for the key in the conversation and never print it. When they say it is done, check again with `gh secret list`.
 
+If the repo is public (`gh repo view <owner>/<repo> --json visibility -q .visibility`), the review must not be posted in full, because a finding about code that is already released would be public before it is fixed. Check for the repository variable with `gh variable list -R <owner>/<repo>`. If `SENTINEL_REVIEW_AGE_RECIPIENT` is missing, tell the user to make an age key in their own terminal if they have none yet; one key serves every repo:
+
+```
+mkdir -p -m 700 ~/.config/sentinel && age-keygen -o ~/.config/sentinel/age.key
+```
+
+`age-keygen` prints the public key, which starts with `age1` and is not secret. Then they set the variable:
+
+```
+gh variable set SENTINEL_REVIEW_AGE_RECIPIENT -R <owner>/<repo> --body <age1... public key>
+```
+
+With it set, the review is encrypted and the comment shows only the count of findings; `.sentinel/ci/read-review.sh <pull request number>` decrypts it.
+
 ## 7. SECURITY.md
 
 Add a `SECURITY.md` with:
