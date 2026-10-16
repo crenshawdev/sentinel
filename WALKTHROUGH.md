@@ -115,4 +115,4 @@ On a public repo, keep confirmed findings to yourself until they're fixed: no is
 | When the snt plugin changes | `claude plugin marketplace update sentinel && claude plugin update snt@sentinel`, then restart Claude Code |
 | Now and then | Rerun `mechanical/install.sh` to update the tools. |
 
-`full.yml`, the monthly CI audit, is optional and not added during onboarding. It runs the lenses and the merge but cannot adjudicate, and on a public repo anyone who can download the workflow's files can read the findings.
+There is no scheduled audit in CI. The full audit runs only on your machine, with `/snt:audit`.

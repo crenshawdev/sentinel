@@ -54,7 +54,7 @@ Everything the pipeline writes goes under `audit/`, apart from the context map's
 | `mechanical/install.sh` | Installs those tools on Arch Linux. |
 | `mechanical/deny.toml` | cargo-deny baseline. A repo's own `deny.toml` takes precedence. |
 | `mechanical/semgrep.yml` | The semgrep rulesets check.sh runs, and the rules it skips. |
-| `ci/fast.yml`, `ci/full.yml` | Workflows for GitHub Actions and Forgejo Actions. |
+| `ci/fast.yml` | The pull request workflow for GitHub Actions and Forgejo Actions. |
 | `ci/install-tools.sh` | Installs the mechanical tools on a Debian or Ubuntu CI runner. |
 | `ci/security-review.sh`, `ci/security-review.md` | The pull request review `fast.yml` runs, and its prompt. |
 | `ci/read-review.sh` | Decrypts a pull request's private review on your machine. |
@@ -105,7 +105,7 @@ Settings, set as environment variables:
 | `SENTINEL_CODEX_EFFORT` | `xhigh` | Codex `model_reasoning_effort` |
 | `SENTINEL_RUN_TIMEOUT` | `3600` | Seconds before a single run is killed |
 
-Billing: Claude runs in `--safe-mode` on your logged-in claude.ai plan. To bill an API key instead, set `SENTINEL_ANTHROPIC_API_KEY`, or `ANTHROPIC_API_KEY`, which is what CI sets on its fanout step. Don't export `ANTHROPIC_API_KEY` on a workstation: every interactive Claude Code session would see it alongside your claude.ai login. A key must be scoped to a workspace in the Anthropic Console; an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
+Billing: Claude runs in `--safe-mode` on your logged-in claude.ai plan. To bill an API key instead, set `SENTINEL_ANTHROPIC_API_KEY`, or `ANTHROPIC_API_KEY`. Don't export `ANTHROPIC_API_KEY` on a workstation: every interactive Claude Code session would see it alongside your claude.ai login. A key must be scoped to a workspace in the Anthropic Console; an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Codex uses `CODEX_API_KEY`, or `OPENAI_API_KEY` passed to it as `CODEX_API_KEY`, and falls back to your Codex login when neither is set.
 
 What the reviewers can and cannot do:
 
@@ -132,7 +132,7 @@ Reports of the same lens that cite the same file go under one finding only when 
 
 ## CI
 
-The workflows expect sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy them into `.github/workflows/` or `.forgejo/workflows/`, and add the secrets `ANTHROPIC_API_KEY` (and `OPENAI_API_KEY` for `full.yml`). GitHub keeps Actions secrets per repository, encrypted in its settings and never in git, so each repo needs its own; `/snt:onboard` asks you to set it in your own terminal, where `gh` prompts for the key so it never passes through Claude:
+The workflow expects sentinel as a submodule at `.sentinel`, which `/snt:onboard` sets up. Copy `ci/fast.yml` into `.github/workflows/` or `.forgejo/workflows/`, and add the secret `ANTHROPIC_API_KEY`. GitHub keeps Actions secrets per repository, encrypted in its settings and never in git, so each repo needs its own; `/snt:onboard` asks you to set it in your own terminal, where `gh` prompts for the key so it never passes through Claude:
 
 ```sh
 gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>
@@ -152,9 +152,9 @@ It finds the newest `sentinel-fast` run for the pull request's head commit, down
 
 The diff is untrusted input, and text in it can try to steer the review. The prompt tells Claude to treat it as data, which narrows that but cannot rule it out, so the review is for trusted pull requests; require approval for workflows from outside contributors. `SENTINEL_REVIEW_MODEL` and `SENTINEL_REVIEW_EFFORT` override the model and effort.
 
-`full.yml` runs on demand and at 06:00 UTC on the 1st of each month: check.sh with every tool, fanout.sh with 3 runs per lens, merge.sh, and `audit/` uploaded as the `sentinel-audit` artifact, kept 14 days. It does not run the context map, the Claude Security scan or adjudication; those need a session. The API keys are set only on the fanout step, never while check.sh builds the project. Anyone who can download the repo's workflow artifacts can read the findings, so on a public repo run it somewhere private.
+The full audit has no workflow. It needs a session for the context map, the Claude Security scan and adjudication, and its findings must stay off public CI, so it runs only on your machine through `/snt:audit`.
 
-On Forgejo, the `ubuntu-latest` label must be mapped to an image on the runner, and Codex's sandbox may not start inside an unprivileged container; when it fails, fanout.sh reports the Codex runs as failed and the Claude runs still count.
+On Forgejo, the `ubuntu-latest` label must be mapped to an image on the runner.
 
 ## What stays manual
 

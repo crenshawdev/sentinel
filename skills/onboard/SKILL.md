@@ -45,7 +45,7 @@ Copy `.sentinel/mechanical/deny.toml` to the repo root and adjust the license al
 
 ## 6. Fast CI workflow
 
-Copy `.sentinel/ci/fast.yml` into `.github/workflows/fast.yml`, or into `.forgejo/workflows/fast.yml` if the repo lives on a Forgejo instance (check `git remote -v`). The file works on both. Do not add `full.yml` yet.
+Copy `.sentinel/ci/fast.yml` into `.github/workflows/fast.yml`, or into `.forgejo/workflows/fast.yml` if the repo lives on a Forgejo instance (check `git remote -v`). The file works on both.
 
 The workflow's security-review job runs on GitHub only and needs the repo's `ANTHROPIC_API_KEY` Actions secret. If the repo has a GitHub remote, check with `gh secret list -R <owner>/<repo>`. If the secret is missing, tell the user to set it in their own terminal, where `gh` prompts for the key so it never passes through the conversation:
 

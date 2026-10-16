@@ -3,19 +3,16 @@
 # the root of the repo under audit. mechanical/install.sh is the Arch version
 # for a workstation.
 #
-# Usage: install-tools.sh [--all]
-#   default  the gating tools only: cargo-audit, cargo-deny and clippy when the
-#            repo has a Cargo.toml, and semgrep
-#   --all    also the reported tools: cargo-geiger, cargo-vet, cargo-fuzz and
-#            Miri with a nightly toolchain, pip-audit and bandit
+# Usage: install-tools.sh
+#   The gating tools: cargo-audit, cargo-deny and clippy when the repo has a
+#   Cargo.toml, and semgrep.
 #
 # Works as root without sudo (Forgejo runner images) and as a normal user with
 # sudo (GitHub runners). New PATH entries are written to $GITHUB_PATH, which
 # both GitHub and Forgejo read.
 set -euo pipefail
 
-all=0
-[[ ${1:-} == --all ]] && all=1
+[[ $# -eq 0 ]] || { echo "usage: $(basename "$0")" >&2; exit 2; }
 
 sudo=()
 [[ $EUID -eq 0 ]] || sudo=(sudo)
@@ -36,16 +33,7 @@ if [[ -f Cargo.toml ]]; then
     fi
     add_path "$HOME/.cargo/bin"
     rustup toolchain install stable --profile minimal --component clippy
-    tools=(cargo-audit cargo-deny)
-    if [[ $all -eq 1 ]]; then
-        tools+=(cargo-geiger cargo-vet cargo-fuzz)
-        rustup toolchain install nightly --profile minimal --component miri
-    fi
-    cargo install --locked "${tools[@]}"
+    cargo install --locked cargo-audit cargo-deny
 fi
 
 pipx install semgrep
-if [[ $all -eq 1 ]]; then
-    pipx install pip-audit
-    pipx install bandit
-fi
