@@ -32,11 +32,11 @@ What `/snt:audit` runs, in order:
 2. **Context map.** The Trail of Bits `audit-context-building` skill maps the code; its `audit-context/DOSSIER.md` is copied to `audit/CONTEXT.md`.
 3. **Claude Security scan.** `/claude-security`, a codebase scan of the whole repo. Its report is copied to `audit/claude-security.md`.
 4. **Lenses and merge.** `.sentinel/fanout.sh . 3`, then `.sentinel/import-claude-security.sh` to add the step 3 findings, then `.sentinel/merge.sh`. Asks before starting, because this is the expensive step: 8 lenses × (runs per lens + 1), on your Claude plan and your OpenAI key.
-5. **Adjudication.** `adjudicator.md`, run as a subagent. Every confirmed finding gets a failing test under `tests/security/` (in a Cargo workspace, the member crate's `tests/security/`), and the session reruns each test to check it really fails.
+5. **Adjudication.** `adjudicator.md`, run as a subagent. Every confirmed finding gets a failing test under `tests/security-unfixed/` (in a Cargo workspace, the member crate's), skipped by default so the normal test run stays green, and the session reruns each test to check it really fails. The fix session moves each test to `tests/security/` with its fix.
 6. **Variant analysis.** The Trail of Bits `variant-analysis` skill looks for the same pattern elsewhere for each confirmed finding; new hits are adjudicated the same way.
 7. **Findings log.** One row per step in `audit/findings-log.md`.
 
-Everything the pipeline writes goes under `audit/`, apart from the tests. `/snt:onboard` puts `audit/` and `CLAUDE-SECURITY-*/` in `.gitignore`, because both hold unfixed vulnerability findings.
+Everything the pipeline writes goes under `audit/`, apart from the context map's `audit-context/` folder and the tests. `/snt:onboard` puts `audit/`, `audit-context/`, `CLAUDE-SECURITY-*/` and `security-unfixed/` in `.gitignore`, because they hold unfixed vulnerability findings, the tests that prove them and the map the reviewers worked from. fanout.sh also leaves all four out of the reviewers' snapshot.
 
 ## What is in it
 

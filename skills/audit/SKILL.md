@@ -19,7 +19,7 @@ Check these and stop with a clear message if any is missing:
 
 - `.sentinel/` exists. If not, the repo has not been onboarded: tell the user to run `/snt:onboard` first.
 - `THREAT-MODEL.md` exists at the repo root.
-- `audit/` and `CLAUDE-SECURITY-*/` are in `.gitignore`. Add them if not, and say so.
+- `audit/`, `audit-context/`, `CLAUDE-SECURITY-*/` and `security-unfixed/` are in `.gitignore`. Add any that are missing, and say so.
 - The plugins this pipeline calls are installed: `claude-security`, `audit-context-building` and `variant-analysis`.
 
 Every step reads THREAT-MODEL.md as the definition of what matters.
@@ -48,7 +48,7 @@ Show the user `audit/<timestamp>/agreement.md`: the counts table per lens and wh
 
 ## 5. Adjudicate
 
-Run the adjudicator as a subagent with the Agent tool, so every command it runs goes through this session's permission checks. Give it only this: read `.sentinel/adjudicator.md` and follow it exactly, against `audit/<timestamp>/merged.md`; write each demonstration where adjudicator.md says (in a Cargo workspace, under the member crate's `tests/security/`); write the table and notes to `audit/<timestamp>/adjudication.md`; do not commit. Do not tell it anything about where the findings came from.
+Run the adjudicator as a subagent with the Agent tool, so every command it runs goes through this session's permission checks. Give it only this: read `.sentinel/adjudicator.md` and follow it exactly, against `audit/<timestamp>/merged.md`; write each demonstration where adjudicator.md says (in a Cargo workspace, under the member crate's `tests/security-unfixed/`); write the table and notes to `audit/<timestamp>/adjudication.md`; do not commit. Do not tell it anything about where the findings came from.
 
 When it returns, check its work yourself: run every CONFIRMED test, and confirm it fails for the reason the finding gives. A test that passes, or fails for an unrelated reason, does not confirm anything: mark that finding UNPROVEN in the table and say why. Then show the user the final table.
 

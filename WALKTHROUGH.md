@@ -88,7 +88,7 @@ Where everything lands:
 | `audit/claude-security.md` | The Claude Security report |
 | `audit/<timestamp>/` | Every lens run, `merged.md`, `agreement.md`, `adjudication.md`, `variants.md` |
 | `audit/findings-log.md` | The running log for this repo |
-| `tests/security/` | The failing tests (in a Cargo workspace, under the member crate) |
+| `tests/security-unfixed/` | The failing tests, gitignored and skipped by default (in a Cargo workspace, under the member crate) |
 
 `audit/` stays out of git. The audit commits nothing and fixes nothing.
 
@@ -97,7 +97,7 @@ Where everything lands:
 Suggested process. Start a new session, so the fixes are judged against the tests and not against what the audit session believed:
 
 1. Work through the CONFIRMED rows of `audit/<timestamp>/adjudication.md` one at a time, the most severe first.
-2. A fix is done when its test in `tests/security/` passes and the rest of the suite still passes.
+2. Move the finding's test from `tests/security-unfixed/` to `tests/security/` and remove its skip marker. In Rust, move its `mod` line from `tests/security-unfixed/main.rs` to `tests/security/main.rs`. A fix is done when that test passes and the rest of the suite still passes.
 3. Commit each fix together with its test. The test stays in the repo as the regression test SECURITY.md promises.
 4. For UNPROVEN rows, read the reason and decide: write the missing test yourself, or record why it stays open.
 5. DROPPED rows need nothing. Their reasons are in the notes.

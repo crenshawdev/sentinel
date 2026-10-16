@@ -14,7 +14,7 @@ Do not run the LLM audit lenses in this session. Do not commit anything; list ev
 
 - Add sentinel as a git submodule at `.sentinel`:
   `git submodule add https://github.com/crenshawdev/sentinel .sentinel`
-- Add `audit/` and `CLAUDE-SECURITY-*/` to `.gitignore`. Both hold unfixed vulnerability findings and must never be committed.
+- Add `audit/`, `audit-context/`, `CLAUDE-SECURITY-*/` and `security-unfixed/` to `.gitignore`. They hold unfixed vulnerability findings, the tests that prove them and the map the reviewers worked from, and must never be committed.
 - Read `.sentinel/README.md`.
 
 ## 2. Write THREAT-MODEL.md

@@ -45,8 +45,12 @@ trap 'rm -rf "$work"' EXIT
 # files, not the repo itself. Every run sees the same files, no run can read
 # another run's output under audit/, and nothing a reviewer does can touch the
 # real working tree. The kit itself is left out when it lives inside the repo,
-# and so are /claude-security reports, which would hand reviewers its findings.
-excludes=(":(exclude)audit" ":(exclude)CLAUDE-SECURITY-*")
+# and so is everything that would hand reviewers earlier findings: /claude-security
+# reports, the context map's own folder, and the tests that prove unfixed
+# findings. They are named here as well as gitignored, in case the ignore lines
+# are missing.
+excludes=(":(exclude)audit" ":(exclude)audit-context" ":(exclude)CLAUDE-SECURITY-*"
+          ":(exclude,glob)**/security-unfixed/**")
 rel=$(realpath --relative-to="$repo" "$sentinel")
 [[ $rel == .. || $rel == ../* ]] || excludes+=(":(exclude)$rel")
 # A submodule shows up in the first listing as one directory, and copying that
