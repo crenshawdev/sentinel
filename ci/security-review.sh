@@ -31,14 +31,15 @@ prompt=$(mktemp)
 trap 'rm -f "$prompt"' EXIT
 { cat "$kit/ci/security-review.md"; echo; cat "$kit/finding-format.md"; } > "$prompt"
 
-# --safe-mode and --setting-sources user keep the pull request's own .claude
-# settings, hooks and MCP servers from loading. The tools are Read, Grep and
+# --safe-mode and --setting-sources "" keep the pull request's own .claude
+# settings, hooks and MCP servers from loading, and any settings file on the
+# runner from pre-approving a read. The tools are Read, Grep and
 # Glob (--bare would drop Grep and Glob) and nothing is pre-approved, so under
 # dontAsk a read or search outside the working directory (/proc/self/environ,
 # the home directory) is refused; .git is refused by name.
 rc=0
 claude -p --safe-mode --model "$model" --effort "$effort" \
-    --setting-sources user --tools "Read,Grep,Glob" --disallowedTools "Read(./.git/**)" \
+    --setting-sources "" --tools "Read,Grep,Glob" --disallowedTools "Read(./.git/**)" \
     --permission-mode dontAsk --no-session-persistence --output-format text \
     < "$prompt" > "$out" || rc=$?
 

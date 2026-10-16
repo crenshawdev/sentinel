@@ -66,9 +66,10 @@ mkdir "$work/repo"
     tar -x -f - -C "$work/repo"
 
 # Claude: --safe-mode skips the user's and the repo's hooks, plugins, MCP
-# servers and CLAUDE.md, and --setting-sources user keeps the repo's own
-# .claude/settings.json out. The tools are Read, Grep and Glob (--bare would
-# drop Grep and Glob), nothing is pre-approved, so any read or search outside
+# servers and CLAUDE.md, and --setting-sources "" loads no settings file, so
+# neither the repo's .claude/settings.json nor an allow rule in the user's own
+# settings can widen what a reviewer reads. The tools are Read, Grep and Glob
+# (--bare would drop Grep and Glob), nothing is pre-approved, so any read or search outside
 # the snapshot is refused. With an API key set, the key is billed; without
 # one, the logged-in plan is.
 # SENTINEL_ANTHROPIC_API_KEY lets the key live in a shell profile without
@@ -123,7 +124,7 @@ run_claude() { # lens prompt run
     (cd "$work/repo" && env "${envs[@]}" \
         timeout --kill-after=30 "$RUN_TIMEOUT" \
         claude -p "${claude_mode[@]}" --model "$MODEL" --effort "$EFFORT" \
-            --setting-sources user --tools "Read,Grep,Glob" \
+            --setting-sources "" --tools "Read,Grep,Glob" \
             --permission-mode dontAsk --no-session-persistence --output-format text \
         < "$2" > "$dest.md.part" 2> "$dest.log") || rc=$?
     if [[ $rc -eq 0 && -s $dest.md.part ]]; then
