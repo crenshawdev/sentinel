@@ -26,6 +26,8 @@ run=$(gh run list --workflow fast.yml --commit "$sha" --json databaseId -q '.[0]
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 gh run download "$run" -n security-review -D "$tmp"
-# The review is model output about untrusted code, so control characters
-# (terminal escapes included) are removed before it reaches the terminal.
-age -d -i "$identity" "$tmp/security-review.md.age" | LC_ALL=C tr -d '\000-\010\013-\037\177'
+# The review is model output about untrusted code, so control characters,
+# C0 and C1 and so every terminal escape, are removed before it reaches the
+# terminal. Bytes that are not valid UTF-8 become U+FFFD.
+age -d -i "$identity" "$tmp/security-review.md.age" |
+    python3 -I -c 'import re, sys; t = sys.stdin.buffer.read().decode("utf-8", "replace"); sys.stdout.write(re.sub("[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", t))'
