@@ -7,7 +7,7 @@
 #   cargo audit, cargo deny, cargo clippy, semgrep
 # Reported only (output shown, exit code ignored):
 #   cargo geiger, cargo vet, cargo fuzz build, cargo miri test (only when the
-#   repo has unsafe code), npm audit, pip-audit, bandit
+#   repo has unsafe code and nightly has Miri), npm audit, pip-audit, bandit
 set -uo pipefail
 
 mech=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
@@ -111,7 +111,13 @@ if [[ -f Cargo.toml ]]; then
     if grep -rqE --include='*.rs' --exclude-dir=target --exclude-dir=.git \
         --exclude-dir=vendor --exclude-dir=third_party \
         'unsafe[[:space:]]*(\{|fn|impl|trait|extern)' .; then
-        step report "cargo miri test" "$(cargo_sub miri)" cargo +nightly miri test --workspace --lib --bins
+        # rustup puts a cargo-miri proxy on PATH for every toolchain, so ask
+        # nightly itself whether Miri is installed (CI runners leave it out).
+        if rustup +nightly component list --installed 2>/dev/null | grep -q '^miri'; then
+            step report "cargo miri test" "$(cargo_sub miri)" cargo +nightly miri test --workspace --lib --bins
+        else
+            skip "cargo miri test" "Miri is not installed for nightly; rustup +nightly component add miri rust-src"
+        fi
     else
         skip "cargo miri test" "no unsafe code in the repo's own Rust files"
     fi

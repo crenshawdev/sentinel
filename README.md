@@ -83,7 +83,7 @@ Gates fail the run when they fail or when the tool is not installed. Everything 
 | `cargo geiger`, once per workspace member | `Cargo.toml` exists | report |
 | `cargo vet --locked` | `supply-chain/` exists | report |
 | `cargo +nightly fuzz build` | a `fuzz/` directory at the root or in any workspace member | report |
-| `cargo +nightly miri test --workspace --lib --bins` (unit tests only: Miri cannot run tests that start processes) | the repo's own Rust code has an `unsafe` block, fn, impl, trait or extern | report |
+| `cargo +nightly miri test --workspace --lib --bins` (unit tests only: Miri cannot run tests that start processes) | the repo's own Rust code has an `unsafe` block, fn, impl, trait or extern, and nightly has Miri installed (CI runners skip it) | report |
 | `npm audit` | `package.json` and `package-lock.json` exist | report |
 | `pip-audit -r requirements.txt` and `pip-audit .`, one run for each that applies | `requirements.txt`, and `pyproject.toml` with a `[project]` table | report |
 | `bandit -r .` | `pyproject.toml` or `requirements.txt` exists | report |

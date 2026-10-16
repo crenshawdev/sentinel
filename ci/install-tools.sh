@@ -50,6 +50,17 @@ if [[ -f Cargo.toml ]]; then
     fi
     add_path "$HOME/.cargo/bin"
     rustup toolchain install stable --profile minimal --component clippy
+    # A repo that pins its toolchain builds, and so runs clippy, on that one,
+    # and a minimal pinned profile leaves clippy out.
+    pinned=""
+    for f in rust-toolchain.toml rust-toolchain; do
+        [[ -f $f ]] || continue
+        pinned=$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$f" | head -n 1)
+        # The older rust-toolchain file may hold just the channel name.
+        [[ -n $pinned || $f != rust-toolchain ]] || pinned=$(head -n 1 "$f" | tr -d '[:space:]')
+        break
+    done
+    [[ -z $pinned ]] || rustup toolchain install "$pinned" --profile minimal --component clippy
     cargo install --locked cargo-audit cargo-deny
 fi
 
