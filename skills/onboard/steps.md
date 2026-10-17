@@ -2,13 +2,13 @@
 
 This repository is being onboarded to the sentinel security-audit kit (https://github.com/jcrenshaw-dev/sentinel). Work through the steps below in order. After each step, stop, show the user the result, and wait for them to say continue. If a step is already done (the file exists and is filled in), say so and move on to the next one.
 
-Do not run the LLM audit lenses in this session. Do not commit anything; list every file you created or changed at the end so the user can review and commit.
+Do not run the audit in this session. Do not commit anything; list every file you created or changed at the end so the user can review and commit.
 
 ## 1. Add the kit
 
 - Add sentinel as a git submodule at `.sentinel`:
   `git submodule add https://github.com/jcrenshaw-dev/sentinel .sentinel`
-- Add `audit/`, `audit-context/`, `CLAUDE-SECURITY-*/` and `security-unfixed/` to `.gitignore`. They hold unfixed vulnerability findings, the tests that prove them and the map the reviewers worked from, and must never be committed.
+- Add `audit/` and `CLAUDE-SECURITY-*/` to `.gitignore`. They hold unfixed vulnerability findings and must never be committed.
 - Read `.sentinel/README.md`.
 
 ## 2. Write THREAT-MODEL.md
@@ -69,9 +69,8 @@ Add a `SECURITY.md` with:
 
 - How to report a vulnerability. Ask the user for the contact or channel; never make one up.
 - What runs on every pull request: the workflows from step 6, what each one checks, and whether it fails the pull request.
-- What the full audit runs, step by step, following the pipeline in `.sentinel/README.md`. Name every lens and its concern, and give how many runs each lens gets on which model and the total, as defaults. Take the lens list from `.sentinel/lenses/` and the run counts from `.sentinel/fanout.sh`, not from memory. Name models as Claude and OpenAI's Codex, never by version.
+- What the full audit runs, step by step, following `.sentinel/skills/audit/steps.md`. Say that it only finds and records: it fixes nothing and writes no tests.
 - A link to https://github.com/jcrenshaw-dev/sentinel.
-- That every confirmed finding becomes a regression test.
 
 ## Finish
 

@@ -1,7 +1,7 @@
 {
   "name": "snt",
-  "version": "0.2.3",
-  "description": "Runs the sentinel security-audit pipeline: /snt:onboard sets a repo up for it once, /snt:audit runs the full audit and proves each finding with a failing test.",
+  "version": "0.3.0",
+  "description": "Runs the sentinel security audit: /snt:onboard sets a repo up for it once, /snt:audit runs the mechanical checks and a Claude Security scan and records what they find.",
   "author": {
     "name": "John Crenshaw"
   },

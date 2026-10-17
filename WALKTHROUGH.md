@@ -1,6 +1,6 @@
 # sentinel walkthrough
 
-How a project goes from nothing to audited, and what to do with the results. There are four parts: set up the machine once, onboard each project once, audit when it matters, then fix in a separate session.
+How a project goes from nothing to audited. There are three parts: set up the machine once, onboard each project once, and audit when it matters.
 
 ## 1. Set up the machine (once)
 
@@ -12,7 +12,7 @@ How a project goes from nothing to audited, and what to do with the results. The
 
 Run it again whenever you want newer versions of the tools.
 
-**Plugins.** `/snt:audit` calls four plugins besides its own:
+**Plugins.** sentinel uses two plugins besides its own:
 
 ```sh
 claude plugin marketplace add jcrenshaw-dev/sentinel
@@ -20,21 +20,11 @@ claude plugin install snt@sentinel
 
 claude plugin install claude-security@claude-plugins-official
 claude plugin install security-guidance@claude-plugins-official
-
-claude plugin marketplace add trailofbits/skills
-claude plugin install audit-context-building@trailofbits
-claude plugin install variant-analysis@trailofbits
 ```
 
-**Keys.** Claude runs on your claude.ai login, so it needs no key on your machine. Codex uses an OpenAI key; put it in `~/.zshenv`:
+**Keys.** The audit runs on your claude.ai login, so it needs no key on your machine. Keep the Anthropic API key in your password manager. Its only job is the GitHub secret for the pull request review (onboarding step 6). It must be scoped to a workspace: an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Never export `ANTHROPIC_API_KEY` in your shell: every interactive Claude Code session would see it next to your claude.ai login.
 
-```sh
-export OPENAI_API_KEY=sk-...
-```
-
-Keep the Anthropic API key in your password manager. Its only job is the GitHub secret for the pull request review (onboarding step 6). It must be scoped to a workspace: an unscoped key fails with a 400 asking for an `anthropic-workspace-id` header. Never export `ANTHROPIC_API_KEY` in your shell: every interactive Claude Code session would see it next to your claude.ai login. If you ever want audits billed to an API key instead of your plan, export it as `SENTINEL_ANTHROPIC_API_KEY`; fanout.sh hands it to its own runs only.
-
-**CLIs.** `claude` and `codex` on PATH.
+**CLIs.** `claude` on PATH.
 
 ## 2. Onboard a project (once per repo)
 
@@ -49,16 +39,16 @@ It stops after each step for you to look. If a step is already done, it says so 
 | Step | What it does | What you check |
 |------|--------------|----------------|
 | 1. Add the kit | `git submodule add https://github.com/jcrenshaw-dev/sentinel .sentinel`, and `audit/` plus `CLAUDE-SECURITY-*/` into `.gitignore` | Both ignore lines are there. Those two folders hold unfixed findings. |
-| 2. THREAT-MODEL.md | Written from the code: what the tool reads, writes, executes, must never touch, and where untrusted data enters. Unsure claims are marked `[VERIFY]`. | Every `[VERIFY]` mark. This is the most important review in the whole process: every lens and the adjudicator treat this file as the definition of what matters. |
+| 2. THREAT-MODEL.md | Written from the code: what the tool reads, writes, executes, must never touch, and where untrusted data enters. Unsure claims are marked `[VERIFY]`. | Every `[VERIFY]` mark. The pull request review treats this file as the definition of what matters, step 3 is built from it, and you check each audit's Claude Security report against it. |
 | 3. Security-guidance rules | `.claude/claude-security-guidance.md`: a short threat model plus a codebase-specific checklist, which the security-guidance plugin adds to its reviews | It stays well under 8 KB and holds no secrets. |
 | 4. Fuzz targets (Rust) | cargo-fuzz targets for every function that parses outside input (JSONL, config, CLI, MCP payloads), in the crate that owns it, each one built | They all compile and the main build still works. It also reports whether the code has `unsafe`; check.sh runs Miri on its own when it does. |
 | 5. deny.toml (Rust) | The baseline copied to the repo root, its license list fitted to the real dependencies, then `cargo deny check` | Read the output. Nothing gets fixed yet. |
 | 6. Fast CI workflow | `.github/workflows/fast.yml` (or `.forgejo/workflows/`), and the repo's `ANTHROPIC_API_KEY` Actions secret, which you set in your own terminal with `gh secret set ANTHROPIC_API_KEY -R <owner>/<repo>` when it asks. On a public repo, also the `SENTINEL_REVIEW_AGE_RECIPIENT` variable holding your age public key, so reviews are encrypted instead of posted | `gh secret list -R <owner>/<repo>` shows the secret and `gh variable list -R <owner>/<repo>` the variable. The key lives encrypted in GitHub's settings, never in git. |
-| 7. SECURITY.md | How to report, a link to sentinel, and the rule that every confirmed finding becomes a regression test | It asks you for the reporting contact. It never makes one up. |
+| 7. SECURITY.md | How to report, what runs on every pull request, what the full audit runs, and a link to sentinel | It asks you for the reporting contact. It never makes one up. |
 
 At the end it lists every file it created or changed. It does not commit; review the list and commit it yourself.
 
-Onboarding never runs the audit lenses.
+Onboarding never runs the audit.
 
 ## 3. Audit (when it matters)
 
@@ -68,50 +58,34 @@ Open Claude Code in the repo and run:
 /snt:audit
 ```
 
-The default is 3 Claude runs per lens. `/snt:audit 5` runs 5. It stops after each step.
+It stops after each step.
 
 | Step | What it does | What you look at |
 |------|--------------|------------------|
-| 1. Mechanical checks | `check.sh`: cargo audit, cargo deny, clippy and semgrep as gates; geiger, vet, fuzz build, Miri, npm audit, pip-audit and bandit as reports | Failures by tool. Nothing gets fixed in this session. |
-| 2. Context map | The Trail of Bits `audit-context-building` skill maps the code; its dossier is saved as `audit/CONTEXT.md` | Whether the map matches how you know the code works. Every later reviewer reads it first. |
-| 3. Claude Security scan | `/claude-security`, a codebase scan of the whole repo; its report is copied to `audit/claude-security.md` | The report itself. Its findings join the merge in step 4. |
-| 4. Lenses and merge | Asks first, because this is the expensive step: 8 lenses × (runs + 1), 32 runs at the default, on your Claude plan and your OpenAI key. Then fanout.sh, the Claude Security import and merge.sh. | `audit/<timestamp>/agreement.md`: the count per lens, and which findings came back in only one run (`low-agreement`). The adjudicator gets `merged.md`, which has no counts. |
-| 5. Adjudication | A fresh subagent runs `adjudicator.md` on each batch of 10 findings, one batch at a time, and writes a failing test for every finding it can prove through a way in the threat model names. Then the session reruns each test itself. | The table: CONFIRMED, UNPROVEN, DROPPED, each with its reason and test path. |
-| 6. Refute | A fresh subagent per batch runs `refuter.md` on the CONFIRMED and DROPPED rulings only, and tries to prove each one wrong | Every ruling that doesn't hold, with the reason. You rule on each. |
-| 7. Variant analysis | For each confirmed finding, the Trail of Bits `variant-analysis` skill looks for the same mistake elsewhere; new hits are adjudicated and refuted the same way | New rows in the table. |
-| 8. Findings log | One row per step in `audit/findings-log.md`: reported, confirmed, unproven, dropped, and what the noise looked like | Whether a lens keeps producing noise. That's how the lenses get tuned. |
+| 1. Mechanical checks | `check.sh`: cargo audit, cargo deny, clippy and semgrep as gates; geiger, vet, fuzz build, Miri, npm audit, pip-audit and bandit as reports. Its output is saved to `audit/check.txt`. | Failures by tool. Nothing gets fixed in this session. |
+| 2. Claude Security scan | `/claude-security`, a codebase scan of the whole repo; its report is copied to `audit/claude-security.md` | The findings by severity, and whether the scan looked at every trust boundary `THREAT-MODEL.md` names. Rerun it with `--scope` on any it missed. |
+| 3. Findings log | One row per step in `audit/findings-log.md`: the tools that failed, and Claude Security's findings by severity | The notes column is yours to fill in. |
 
 Where everything lands:
 
 | Path | What it holds |
 |------|---------------|
-| `audit/CONTEXT.md` | The architectural map |
+| `audit/check.txt` | The mechanical checks' output |
 | `audit/claude-security.md` | The Claude Security report |
-| `audit/<timestamp>/` | Every lens run, `merged.md`, `agreement.md`, `adjudication/` (one file per batch), `adjudication.md`, `refute/`, `variants.md` |
+| `CLAUDE-SECURITY-<timestamp>/` | Claude Security's own run folder |
 | `audit/findings-log.md` | The running log for this repo |
-| `tests/security-unfixed/` | The failing tests, gitignored and skipped by default (in a Cargo workspace, under the member crate) |
 
-`audit/` stays out of git. The audit commits nothing and fixes nothing.
+`audit/` and `CLAUDE-SECURITY-*/` stay out of git. The audit fixes nothing, writes no tests and commits nothing. What you do with the findings is up to you.
 
-## 4. Fix (a separate session)
+On a public repo, keep findings to yourself until they're fixed: no issue, no commit message and no post that describes an open one.
 
-Suggested process. Start a new session, so the fixes are judged against the tests and not against what the audit session believed:
-
-1. Work through the CONFIRMED rows of `audit/<timestamp>/adjudication.md` one at a time, the most severe first.
-2. Move the finding's test from `tests/security-unfixed/` to `tests/security/` and remove its skip marker. In Rust, move its `mod` line from `tests/security-unfixed/main.rs` to `tests/security/main.rs`. A fix is done when that test passes and the rest of the suite still passes.
-3. Commit each fix together with its test. The test stays in the repo as the regression test SECURITY.md promises.
-4. For UNPROVEN rows, read the reason and decide: write the missing test yourself, or record why it stays open.
-5. DROPPED rows need nothing. Their reasons are in the notes.
-
-On a public repo, keep confirmed findings to yourself until they're fixed: no issue, no commit message and no post that describes an open one.
-
-## 5. Keeping it running
+## 4. Keeping it running
 
 | When | What to do |
 |------|------------|
 | Every pull request | `fast.yml` runs by itself: the mechanical gates, then Claude Opus 5.5 reviews the diff and posts the result as a comment. On a public repo with the age variable set, the comment holds only the count of findings; read the review with `.sentinel/ci/read-review.sh <pull request number>`. The check fails if the review didn't actually run. It only runs on pull requests; pushes straight to `main` skip it. |
-| Before a release | `/snt:audit`, then a fix session for whatever it confirms. |
-| When the tool gains a new input, output, command or hook | Update `THREAT-MODEL.md` and `.claude/claude-security-guidance.md` first, then audit. The lenses only look for what the threat model says matters. |
+| Before a release | `/snt:audit`, then decide what to do with what it finds. |
+| When the tool gains a new input, output, command or hook | Update `THREAT-MODEL.md` and `.claude/claude-security-guidance.md` first, then audit. The pull request review and your check of the Claude Security report both work from the threat model. |
 | When sentinel changes | Move the project's pin and commit it: `git submodule update --remote .sentinel` |
 | When the snt plugin changes | `claude plugin marketplace update sentinel && claude plugin update snt@sentinel`, then restart Claude Code |
 | Now and then | Rerun `mechanical/install.sh` to update the tools. |
