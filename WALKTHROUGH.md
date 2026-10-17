@@ -15,7 +15,7 @@ Run it again whenever you want newer versions of the tools.
 **Plugins.** `/snt:audit` calls four plugins besides its own:
 
 ```sh
-claude plugin marketplace add crenshawdev/sentinel
+claude plugin marketplace add jcrenshaw-dev/sentinel
 claude plugin install snt@sentinel
 
 claude plugin install claude-security@claude-plugins-official
@@ -48,7 +48,7 @@ It stops after each step for you to look. If a step is already done, it says so 
 
 | Step | What it does | What you check |
 |------|--------------|----------------|
-| 1. Add the kit | `git submodule add https://github.com/crenshawdev/sentinel .sentinel`, and `audit/` plus `CLAUDE-SECURITY-*/` into `.gitignore` | Both ignore lines are there. Those two folders hold unfixed findings. |
+| 1. Add the kit | `git submodule add https://github.com/jcrenshaw-dev/sentinel .sentinel`, and `audit/` plus `CLAUDE-SECURITY-*/` into `.gitignore` | Both ignore lines are there. Those two folders hold unfixed findings. |
 | 2. THREAT-MODEL.md | Written from the code: what the tool reads, writes, executes, must never touch, and where untrusted data enters. Unsure claims are marked `[VERIFY]`. | Every `[VERIFY]` mark. This is the most important review in the whole process: every lens and the adjudicator treat this file as the definition of what matters. |
 | 3. Security-guidance rules | `.claude/claude-security-guidance.md`: a short threat model plus a codebase-specific checklist, which the security-guidance plugin adds to its reviews | It stays well under 8 KB and holds no secrets. |
 | 4. Fuzz targets (Rust) | cargo-fuzz targets for every function that parses outside input (JSONL, config, CLI, MCP payloads), in the crate that owns it, each one built | They all compile and the main build still works. It also reports whether the code has `unsafe`; check.sh runs Miri on its own when it does. |

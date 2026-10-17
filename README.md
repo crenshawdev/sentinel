@@ -13,7 +13,7 @@ sentinel is the audit kit I run on my own tools. It is public so the approach ca
 Install the plugin once:
 
 ```sh
-claude plugin marketplace add crenshawdev/sentinel
+claude plugin marketplace add jcrenshaw-dev/sentinel
 claude plugin install snt@sentinel
 ```
 
